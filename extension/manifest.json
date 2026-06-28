@@ -18,5 +18,10 @@
   "action": {
     "default_popup": "popup.html",
     "default_title": "DNSGuard"
+  },
+  "icons": {
+    "16": "imagelogo.png",
+    "48": "imagelogo.png",
+    "128": "imagelogo.png"
   }
 }

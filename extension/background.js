@@ -52,7 +52,7 @@ async function checkUrlStatus(url, tabId) {
             // Trigger browser warning notification
             chrome.notifications.create({
                 type: 'basic',
-                iconUrl: 'icon.png', // Requires an icon file in the extension directory
+                iconUrl: 'imagelogo.png', // Requires an icon file in the extension directory
                 title: `DNSGuard Alert: ${data.status} Website!`,
                 message: `Access to ${url} was blocked for your safety.`,
                 priority: 2
