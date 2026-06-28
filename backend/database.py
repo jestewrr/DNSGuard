@@ -36,9 +36,15 @@ def init_db():
                 status TEXT NOT NULL,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 ip_address TEXT,
-                user_id INTEGER
+                user_id INTEGER,
+                breakdown JSONB
             )
         ''')
+
+        # Safely add the column if it doesn't exist (for existing databases)
+        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name='logs' AND column_name='breakdown'")
+        if not cursor.fetchone():
+            cursor.execute('ALTER TABLE Logs ADD COLUMN breakdown JSONB')
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Blacklist (
@@ -69,13 +75,15 @@ def init_db():
     except Exception as e:
         print(f"Skipping DB initialization (likely missing valid Postgres connection): {e}")
 
-def log_request(url, domain, status, ip_address, user_id=None):
+def log_request(url, domain, status, ip_address, user_id=None, breakdown=None):
+    import json
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        breakdown_json = json.dumps(breakdown) if breakdown else None
         cursor.execute(
-            'INSERT INTO Logs (url, domain, status, ip_address, user_id) VALUES (%s, %s, %s, %s, %s)',
-            (url, domain, status, ip_address, user_id)
+            'INSERT INTO Logs (url, domain, status, ip_address, user_id, breakdown) VALUES (%s, %s, %s, %s, %s, %s)',
+            (url, domain, status, ip_address, user_id, breakdown_json)
         )
         conn.commit()
         conn.close()

@@ -103,31 +103,56 @@ def check_domain_reputation(url):
     
     return "Safe"
 
+def check_ad_network(domain):
+    """
+    Checks if the domain belongs to known popup or ad networks.
+    """
+    ad_networks = ['doubleclick.net', 'popads.net', 'propellerads.com', 'adtech.de', 'advertising.com', 'admob.com']
+    return any(ad in domain for ad in ad_networks)
+
 def analyze_url(url):
     """
     Main analysis function.
-    Returns a status: 'Safe', 'Suspicious', or 'Malicious'
+    Returns a tuple: (status, breakdown_dict)
     """
+    breakdown = {}
+    
     domain = extract_domain(url)
+    breakdown['url_monitoring'] = f"Extracted domain: {domain}" if domain else "Failed to extract domain"
+    
     if not domain:
-        return "Suspicious"
+        return "Suspicious", breakdown
 
     # 1. Blacklist-Based Detection
-    if is_blacklisted(domain):
-        return "Malicious"
+    is_black = is_blacklisted(domain)
+    breakdown['blacklist'] = "Failed (Found in blacklist)" if is_black else "Passed"
 
     # 2. Pattern-Based Detection
-    if check_pattern(domain):
-        return "Suspicious"
+    is_pattern = check_pattern(domain)
+    breakdown['pattern'] = "Failed (Suspicious patterns found)" if is_pattern else "Passed"
 
     # 3. Domain Reputation Analysis
     reputation = check_domain_reputation(url)
-    if reputation != "Safe":
-        return reputation
+    breakdown['reputation'] = reputation
 
     # 4. & 5. Real-Time Threat Detection (DNS resolution checks)
-    # If the domain doesn't resolve, we mark it as suspicious (could be a typo or malicious DGA)
-    if not check_dns(domain):
-        return "Suspicious"
+    is_dns_valid = check_dns(domain)
+    breakdown['dns'] = "Passed (Valid IP)" if is_dns_valid else "Failed (No resolution)"
+    
+    # 6. Pop-Up / Ad Detection
+    is_ad = check_ad_network(domain)
+    breakdown['ad_detection'] = "Failed (Known Ad/Popup Network)" if is_ad else "Passed"
 
-    return "Safe"
+    # Final Status Logic
+    if is_black:
+        status = "Malicious"
+    elif is_pattern or not is_dns_valid:
+        status = "Suspicious"
+    elif is_ad:
+        status = "Suspicious" # We can flag ad networks as Suspicious
+    elif reputation != "Safe":
+        status = reputation
+    else:
+        status = "Safe"
+
+    return status, breakdown

@@ -1,6 +1,9 @@
 // The URL of our local Flask backend
 const BACKEND_URL = "https://dnsguard-backend.onrender.com/api/check_url";
 
+// Debounce cache to prevent duplicate requests
+const recentlyChecked = new Set();
+
 chrome.webRequest.onBeforeRequest.addListener(
   function(details) {
     // Only intercept main_frame (the main document being loaded)
@@ -10,16 +13,17 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     const url = details.url;
     
-    // Ignore chrome internal URLs
-    if (url.startsWith("chrome://") || url.startsWith("chrome-extension://")) {
+    // Ignore chrome internal URLs and the dashboard itself
+    if (url.startsWith("chrome://") || url.startsWith("chrome-extension://") || url.includes("dnsguard-backend.onrender.com")) {
       return { cancel: false };
     }
 
-    // Since onBeforeRequest in MV3 cannot be asynchronous when blocking (using async/await or promises to block),
-    // we use a synchronous XMLHttpRequest workaround or use declarativeNetRequest in a real prod environment.
-    // However, MV3 dropped support for blocking webRequest.
-    // Wait, MV3 requires declarativeNetRequest for blocking, OR we can let it load, check async, and redirect if bad.
-    // Let's implement the async check and redirect pattern for simplicity.
+    // Debounce duplicate URLs within 5 seconds
+    if (recentlyChecked.has(url)) {
+      return { cancel: false };
+    }
+    recentlyChecked.add(url);
+    setTimeout(() => recentlyChecked.delete(url), 5000);
     
     checkUrlStatus(url, details.tabId);
     

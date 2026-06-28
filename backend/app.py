@@ -99,10 +99,10 @@ def check_url():
     ip_address = request.remote_addr
     
     # Analyze the URL
-    status = analyze_url(url)
+    status, breakdown = analyze_url(url)
     
     # Log the request
-    log_request(url, domain, status, ip_address, user_id=user_id)
+    log_request(url, domain, status, ip_address, user_id=user_id, breakdown=breakdown)
     
     return jsonify({
         'url': url,
