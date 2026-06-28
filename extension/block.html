@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Warning: Unsafe Website</title>
+    <style>
+        body {
+            background-color: #dc3545;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            border-radius: 10px;
+            display: inline-block;
+            max-width: 600px;
+        }
+        h1 { font-size: 48px; margin-bottom: 10px; }
+        p { font-size: 18px; line-height: 1.5; }
+        .url-box {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            word-break: break-all;
+            font-family: monospace;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .btn {
+            background: white;
+            color: #dc3545;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚠️ Warning!</h1>
+        <h2>Deceptive or Dangerous Site Ahead</h2>
+        <p>DNSGuard has blocked access to this website because it has been flagged as <strong><span id="status-text">Unsafe</span></strong>.</p>
+        
+        <div class="url-box" id="blocked-url"></div>
+        
+        <p>Attackers on this site might try to trick you into installing software or revealing personal information (for example, passwords, phone numbers, or credit cards).</p>
+        
+        <button class="btn" onclick="window.history.back()">Go Back Safely</button>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const url = urlParams.get('url');
+        const status = urlParams.get('status');
+        
+        if (url) document.getElementById('blocked-url').innerText = url;
+        if (status) document.getElementById('status-text').innerText = status;
+        
+        if (status === 'Suspicious') {
+            document.body.style.backgroundColor = '#ffc107';
+            document.querySelector('.btn').style.color = '#ffc107';
+            document.querySelector('.container').style.color = 'black';
+        }
+    </script>
+</body>
+</html>
