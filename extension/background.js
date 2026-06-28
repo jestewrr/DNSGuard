@@ -1,5 +1,5 @@
 // The URL of our local Flask backend
-const BACKEND_URL = "http://localhost:5000/api/check_url";
+const BACKEND_URL = "https://dnsguard-backend.onrender.com/api/check_url";
 
 chrome.webRequest.onBeforeRequest.addListener(
   function(details) {

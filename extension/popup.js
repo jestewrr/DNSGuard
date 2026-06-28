@@ -18,7 +18,7 @@ function handleLogin() {
     const pass = document.getElementById('password').value;
     const errEl = document.getElementById('login-error');
     
-    fetch("http://localhost:5000/api/login", {
+    fetch("https://dnsguard-backend.onrender.com/api/login", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: user, password: pass })
@@ -68,7 +68,7 @@ function checkCurrentTab(userId) {
             return;
         }
 
-        fetch("http://localhost:5000/api/check_url", {
+        fetch("https://dnsguard-backend.onrender.com/api/check_url", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: currentUrl, user_id: userId })
