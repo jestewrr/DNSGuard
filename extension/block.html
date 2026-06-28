@@ -2,72 +2,107 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Warning: Unsafe Website</title>
+    <title>Warning: Unsafe Website — DNSGuard</title>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background-color: #dc3545;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
             color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            text-align: center;
-            padding: 50px;
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
         }
         .container {
-            background: rgba(0, 0, 0, 0.2);
-            padding: 40px;
-            border-radius: 10px;
-            display: inline-block;
-            max-width: 600px;
+            text-align: center;
+            max-width: 560px;
         }
-        h1 { font-size: 48px; margin-bottom: 10px; }
-        p { font-size: 18px; line-height: 1.5; }
+        .icon-container {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            font-size: 40px;
+        }
+        .malicious .icon-container { background: rgba(239,68,68,0.15); }
+        .suspicious .icon-container { background: rgba(234,179,8,0.15); }
+        h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+        .malicious h1 { color: #ef4444; }
+        .suspicious h1 { color: #eab308; }
+        h2 { font-size: 18px; font-weight: 400; color: #94a3b8; margin-bottom: 32px; }
         .url-box {
-            background: rgba(255,255,255,0.1);
-            padding: 10px;
-            word-break: break-all;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 14px 20px;
+            border-radius: 12px;
             font-family: monospace;
-            margin: 20px 0;
-            border-radius: 5px;
+            font-size: 14px;
+            word-break: break-all;
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+        .warning-text {
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 32px;
         }
         .btn {
-            background: white;
-            color: #dc3545;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
             display: inline-block;
-            margin-top: 20px;
+            padding: 12px 32px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-decoration: none;
         }
+        .btn-primary {
+            background: linear-gradient(to right, #06b6d4, #3b82f6);
+            color: white;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: scale(1.02); }
+        .logo { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 32px; }
+        .logo img { width: 32px; height: 32px; }
+        .logo span { font-size: 16px; font-weight: 700; color: #94a3b8; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>⚠️ Warning!</h1>
-        <h2>Deceptive or Dangerous Site Ahead</h2>
-        <p>DNSGuard has blocked access to this website because it has been flagged as <strong><span id="status-text">Unsafe</span></strong>.</p>
-        
+    <div class="container" id="main-container">
+        <div class="logo">
+            <img src="imagelogo.png" alt="DNSGuard">
+            <span>DNSGuard</span>
+        </div>
+        <div class="icon-container">⚠️</div>
+        <h1>Dangerous Site Blocked</h1>
+        <h2>DNSGuard has prevented access to this website</h2>
         <div class="url-box" id="blocked-url"></div>
-        
-        <p>Attackers on this site might try to trick you into installing software or revealing personal information (for example, passwords, phone numbers, or credit cards).</p>
-        
-        <button class="btn" onclick="window.history.back()">Go Back Safely</button>
+        <p class="warning-text">
+            This website has been classified as <strong id="status-text">Unsafe</strong> by our threat detection engine. 
+            Attackers on this site may try to trick you into installing malware, revealing passwords, or stealing personal information.
+        </p>
+        <button class="btn btn-primary" onclick="window.history.back()">← Go Back Safely</button>
     </div>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const url = urlParams.get('url');
         const status = urlParams.get('status');
-        
+
         if (url) document.getElementById('blocked-url').innerText = url;
         if (status) document.getElementById('status-text').innerText = status;
-        
+
+        const container = document.getElementById('main-container');
         if (status === 'Suspicious') {
-            document.body.style.backgroundColor = '#ffc107';
-            document.querySelector('.btn').style.color = '#ffc107';
-            document.querySelector('.container').style.color = 'black';
+            container.classList.add('suspicious');
+            document.querySelector('h1').textContent = 'Suspicious Site Detected';
+        } else {
+            container.classList.add('malicious');
         }
     </script>
 </body>

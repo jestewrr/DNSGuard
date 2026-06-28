@@ -3,277 +3,354 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DNSGuard Dashboard</title>
-    <!-- Bootstrap CSS & JS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Chart.js -->
+    <title>DNSGuard — Dashboard</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='imagelogo.png') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { padding-top: 2rem; background-color: #f8f9fa; }
-        .card { margin-bottom: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .navbar-brand { font-weight: bold; color: #0d6efd !important; }
-        .badge-safe { background-color: #198754; }
-        .badge-suspicious { background-color: #ffc107; color: #000; }
-        .badge-malicious { background-color: #dc3545; }
+        * { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.06); }
+        .sidebar-link { transition: all 0.2s; }
+        .sidebar-link:hover, .sidebar-link.active { background: rgba(59,130,246,0.15); color: #67e8f9; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        .fade-up { animation: fadeUp 0.4s ease-out forwards; }
+        .fade-up-1 { animation-delay: 0.05s; opacity:0; }
+        .fade-up-2 { animation-delay: 0.1s; opacity:0; }
+        .fade-up-3 { animation-delay: 0.15s; opacity:0; }
+        .fade-up-4 { animation-delay: 0.2s; opacity:0; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
     </style>
 </head>
-<body>
+<body class="bg-slate-950 text-white min-h-screen">
 
-<div class="container">
-    <nav class="navbar navbar-expand-lg navbar-light bg-white mb-4 rounded shadow-sm">
-        <div class="container-fluid d-flex justify-content-between align-items-center">
-            <a class="navbar-brand d-flex align-items-center" href="/">
-                <img src="{{ url_for('static', filename='imagelogo.png') }}" alt="DNSGuard Logo" height="30" class="me-2">
-                DNSGuard Dashboard
+<div class="flex min-h-screen">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-64 bg-slate-900/80 border-r border-white/5 flex-shrink-0 flex flex-col fixed h-full z-30 transition-transform -translate-x-full lg:translate-x-0">
+        <div class="p-5 border-b border-white/5 flex items-center gap-3">
+            <img src="{{ url_for('static', filename='imagelogo.png') }}" alt="Logo" class="w-9 h-9">
+            <span class="text-lg font-bold text-white">DNSGuard</span>
+        </div>
+        <nav class="flex-1 p-4 space-y-1">
+            <a href="/" class="sidebar-link active flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                Dashboard
             </a>
-            <div class="d-flex align-items-center gap-3">
-                <span class="text-muted">Logged in as: <strong>{{ username }}</strong> ({{ role }})</span>
-                {% if role == 'Administrator' %}
-                <button class="btn btn-sm btn-outline-primary">Manage Users</button>
-                {% endif %}
-                <a href="/logout" class="btn btn-sm btn-danger">Logout</a>
-            </div>
-        </div>
-    </nav>
-
-    <div class="row">
-        <!-- Stats Cards -->
-        <div class="col-md-3">
-            <div class="card text-center p-3">
-                <h5 class="text-muted">Total Requests</h5>
-                <h2>{{ stats.total }}</h2>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center p-3">
-                <h5 class="text-success">Safe</h5>
-                <h2>{{ stats.safe }}</h2>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center p-3">
-                <h5 class="text-warning">Suspicious</h5>
-                <h2>{{ stats.suspicious }}</h2>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center p-3">
-                <h5 class="text-danger">Malicious</h5>
-                <h2>{{ stats.malicious }}</h2>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <!-- Chart -->
-        <div class="col-md-5">
-            <div class="card p-3 h-100">
-                <h5 class="card-title">Threat Breakdown</h5>
-                <div style="position: relative; height: 300px; width: 100%;">
-                    <canvas id="threatChart"></canvas>
+            {% if role in ('Administrator', 'Security Analyst') %}
+            <a href="/admin/settings" class="sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                Threat Management
+            </a>
+            {% endif %}
+            {% if role == 'Administrator' %}
+            <a href="/admin/users" class="sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                User Management
+            </a>
+            <a href="/admin/settings" class="sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Settings
+            </a>
+            {% endif %}
+        </nav>
+        <div class="p-4 border-t border-white/5">
+            <div class="flex items-center gap-3 px-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-sm font-bold">
+                    {{ full_name[0] | upper }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-white truncate">{{ full_name }}</p>
+                    <p class="text-xs text-slate-500 truncate">{{ role }}</p>
                 </div>
             </div>
         </div>
-        
-        <!-- Logs Table -->
-        <div class="col-md-7">
-            <div class="card p-3 h-100">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="card-title mb-0">Recent Activity</h5>
-                    <div class="d-flex gap-2">
-                        <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search domains...">
-                        <select id="statusFilter" class="form-select form-select-sm" style="width: auto;">
-                            <option value="all">All Status</option>
-                            <option value="Safe">Safe</option>
-                            <option value="Suspicious">Suspicious</option>
-                            <option value="Malicious">Malicious</option>
-                        </select>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 lg:ml-64">
+
+        <!-- Top Nav -->
+        <header class="sticky top-0 z-20 bg-slate-950/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="lg:hidden text-slate-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+                <h1 class="text-xl font-bold">Dashboard</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+                    {% if role == 'Administrator' %}bg-purple-500/20 text-purple-300 border border-purple-500/30
+                    {% elif role == 'Security Analyst' %}bg-amber-500/20 text-amber-300 border border-amber-500/30
+                    {% else %}bg-cyan-500/20 text-cyan-300 border border-cyan-500/30{% endif %}">
+                    {{ role }}
+                </span>
+                <a href="/logout" class="flex items-center gap-2 text-sm text-slate-400 hover:text-red-400 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    Logout
+                </a>
+            </div>
+        </header>
+
+        <div class="p-6">
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="mb-4 px-4 py-3 rounded-xl text-sm
+                    {% if category == 'error' %}bg-red-500/10 text-red-300 border border-red-500/20
+                    {% elif category == 'success' %}bg-green-500/10 text-green-300 border border-green-500/20
+                    {% else %}bg-blue-500/10 text-blue-300 border border-blue-500/20{% endif %}">
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <!-- Stat Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="glass rounded-2xl p-5 fade-up fade-up-1">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Requests</span>
+                        <div class="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                        </div>
+                    </div>
+                    <p class="text-3xl font-bold text-white">{{ stats.total }}</p>
+                </div>
+                <div class="glass rounded-2xl p-5 fade-up fade-up-2">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Safe</span>
+                        <div class="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                        </div>
+                    </div>
+                    <p class="text-3xl font-bold text-green-400">{{ stats.safe }}</p>
+                </div>
+                <div class="glass rounded-2xl p-5 fade-up fade-up-3">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Suspicious</span>
+                        <div class="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+                        </div>
+                    </div>
+                    <p class="text-3xl font-bold text-yellow-400">{{ stats.suspicious }}</p>
+                </div>
+                <div class="glass rounded-2xl p-5 fade-up fade-up-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Blocked</span>
+                        <div class="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                        </div>
+                    </div>
+                    <p class="text-3xl font-bold text-red-400">{{ stats.malicious }}</p>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-3 gap-6 mb-6">
+                <!-- Threat Trend Chart -->
+                {% if role != 'Viewer/User' %}
+                <div class="glass rounded-2xl p-6 lg:col-span-1">
+                    <h3 class="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">Threat Breakdown</h3>
+                    <div style="position:relative;height:220px">
+                        <canvas id="threatChart"></canvas>
                     </div>
                 </div>
-                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-hover" id="logsTable">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Timestamp</th>
-                                <th>Domain</th>
-                                <th>Status</th>
-                                <th>IP</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for log in logs %}
-                            <tr style="cursor: pointer;" onclick="showBreakdown(this)" data-status="{{ log.status }}" data-breakdown='{{ log.breakdown | tojson | forceescape if log.breakdown else "{}" }}'>
-                                <td>{{ log.timestamp }}</td>
-                                <td class="text-truncate" style="max-width: 200px;" title="{{ log.url }}">{{ log.domain }}</td>
-                                <td>
-                                    {% if log.status == 'Safe' %}
-                                    <span class="badge badge-safe">Safe</span>
-                                    {% elif log.status == 'Suspicious' %}
-                                    <span class="badge badge-suspicious">Suspicious</span>
-                                    {% else %}
-                                    <span class="badge badge-malicious">Malicious</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ log.ip_address }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted">No logs available.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                {% endif %}
+
+                <!-- Recent Activity Table -->
+                <div class="glass rounded-2xl p-6 {{ 'lg:col-span-2' if role != 'Viewer/User' else 'lg:col-span-3' }}">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Recent Activity</h3>
+                        <div class="flex gap-2">
+                            <input type="text" id="searchInput" placeholder="Search domains..."
+                                class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 w-44">
+                            <select id="statusFilter"
+                                class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                                <option value="all">All Status</option>
+                                <option value="Safe">Safe</option>
+                                <option value="Suspicious">Suspicious</option>
+                                <option value="Malicious">Malicious</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto" style="max-height:420px; overflow-y:auto;">
+                        <table class="w-full text-sm" id="logsTable">
+                            <thead class="sticky top-0 bg-slate-900/90 backdrop-blur">
+                                <tr class="text-left text-slate-500 text-xs uppercase tracking-wider">
+                                    <th class="px-4 py-3">Website</th>
+                                    <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3 hidden md:table-cell">Threat Level</th>
+                                    <th class="px-4 py-3 hidden sm:table-cell">Timestamp</th>
+                                    <th class="px-4 py-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5">
+                                {% for log in logs %}
+                                <tr class="hover:bg-white/[0.02] transition cursor-pointer" data-status="{{ log.status }}" data-breakdown='{{ log.breakdown | tojson | forceescape if log.breakdown else "{}" }}'>
+                                    <td class="px-4 py-3">
+                                        <div class="font-medium text-white truncate max-w-[200px]" title="{{ log.url }}">{{ log.domain }}</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {% if log.status == 'Safe' %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">Safe</span>
+                                        {% elif log.status == 'Suspicious' %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Suspicious</span>
+                                        {% else %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Malicious</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-3 hidden md:table-cell">
+                                        {% if log.status == 'Safe' %}
+                                        <div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width:15%"></div></div>
+                                        {% elif log.status == 'Suspicious' %}
+                                        <div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-yellow-500 h-1.5 rounded-full" style="width:55%"></div></div>
+                                        {% else %}
+                                        <div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-red-500 h-1.5 rounded-full" style="width:90%"></div></div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-3 hidden sm:table-cell text-slate-500 text-xs">{{ log.timestamp }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <button onclick="showBreakdown(this.closest('tr'))" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium">Details</button>
+                                            {% if role in ('Security Analyst', 'Administrator') %}
+                                            <div class="relative inline-block">
+                                                <button onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-amber-400 hover:text-amber-300 text-xs font-medium">Reclassify ▾</button>
+                                                <div class="hidden absolute right-0 mt-1 w-32 bg-slate-800 border border-white/10 rounded-lg shadow-xl z-10">
+                                                    <form method="POST" action="/analyst/reclassify/{{ log.id }}">
+                                                        <input type="hidden" name="status" value="Safe">
+                                                        <button type="submit" class="w-full text-left px-3 py-2 text-xs text-green-400 hover:bg-white/5">✓ Safe</button>
+                                                    </form>
+                                                    <form method="POST" action="/analyst/reclassify/{{ log.id }}">
+                                                        <input type="hidden" name="status" value="Suspicious">
+                                                        <button type="submit" class="w-full text-left px-3 py-2 text-xs text-yellow-400 hover:bg-white/5">⚠ Suspicious</button>
+                                                    </form>
+                                                    <form method="POST" action="/analyst/reclassify/{{ log.id }}">
+                                                        <input type="hidden" name="status" value="Malicious">
+                                                        <button type="submit" class="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5">✕ Malicious</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="5" class="px-4 py-8 text-center text-slate-600">No activity recorded yet.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
-<div id="chart-data" 
-     data-safe="{{ stats.safe }}" 
-     data-suspicious="{{ stats.suspicious }}" 
-     data-malicious="{{ stats.malicious }}" 
-     style="display: none;"></div>
+        </div>
+    </main>
+</div>
 
 <!-- Breakdown Modal -->
-<div class="modal fade" id="breakdownModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Threat Detection Breakdown</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body" id="breakdownBody">
-        <!-- Populated via JS -->
-      </div>
+<div id="breakdownModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-white/10 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div class="flex items-center justify-between p-6 border-b border-white/5">
+            <h3 class="text-lg font-bold text-white">Threat Detection Breakdown</h3>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-white transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="p-6" id="breakdownBody"></div>
     </div>
-  </div>
 </div>
 
-<script>
-    // Initialize Chart.js
-    document.addEventListener("DOMContentLoaded", function() {
-        const chartDataEl = document.getElementById('chart-data');
-        const safeCount = parseInt(chartDataEl.getAttribute('data-safe'), 10) || 0;
-        const suspiciousCount = parseInt(chartDataEl.getAttribute('data-suspicious'), 10) || 0;
-        const maliciousCount = parseInt(chartDataEl.getAttribute('data-malicious'), 10) || 0;
+<!-- Chart Data -->
+<div id="chart-data" data-safe="{{ stats.safe }}" data-suspicious="{{ stats.suspicious }}" data-malicious="{{ stats.malicious }}" style="display:none"></div>
 
-        const ctx = document.getElementById('threatChart').getContext('2d');
-        const threatChart = new Chart(ctx, {
+<script>
+// Chart
+document.addEventListener("DOMContentLoaded", function() {
+    const chartEl = document.getElementById('threatChart');
+    if (chartEl) {
+        const d = document.getElementById('chart-data');
+        new Chart(chartEl.getContext('2d'), {
             type: 'doughnut',
             data: {
                 labels: ['Safe', 'Suspicious', 'Malicious'],
                 datasets: [{
-                    data: [safeCount, suspiciousCount, maliciousCount],
-                    backgroundColor: ['#198754', '#ffc107', '#dc3545'],
-                    borderWidth: 1
+                    data: [parseInt(d.dataset.safe)||0, parseInt(d.dataset.suspicious)||0, parseInt(d.dataset.malicious)||0],
+                    backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
+                    borderWidth: 0,
+                    borderRadius: 4
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' }
-                }
-            }
+            options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16, usePointStyle: true, pointStyleWidth: 8 } } } }
         });
-
-        // Search and Filter Logic
-        const searchInput = document.getElementById('searchInput');
-        const statusFilter = document.getElementById('statusFilter');
-        const tableBody = document.querySelector('#logsTable tbody');
-        const rows = tableBody.querySelectorAll('tr');
-
-        function filterTable() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const filterValue = statusFilter.value;
-
-            rows.forEach(row => {
-                if (row.children.length === 1) return; // Skip "No logs available" row
-
-                const domainCell = row.children[1].textContent.toLowerCase();
-                const statusCell = row.children[2].textContent.trim();
-                
-                const matchesSearch = domainCell.includes(searchTerm);
-                const matchesFilter = filterValue === 'all' || statusCell.includes(filterValue);
-
-                if (matchesSearch && matchesFilter) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        }
-
-        searchInput.addEventListener('input', filterTable);
-        statusFilter.addEventListener('change', filterTable);
-    });
-
-    function showBreakdown(rowEl) {
-        const bdString = rowEl.getAttribute('data-breakdown');
-        const status = rowEl.getAttribute('data-status');
-        let bd = {};
-        try { bd = JSON.parse(bdString); } catch(e){}
-        
-        const bodyEl = document.getElementById('breakdownBody');
-        
-        if (Object.keys(bd).length === 0) {
-            bodyEl.innerHTML = "<p class='text-muted'>No breakdown data available for this log.</p>";
-        } else {
-            // Generate an explanation based on status and breakdown
-            let alertClass = "alert-success";
-            let explanation = "This website is classified as <strong>Safe</strong> because it successfully passed all our automated security checks without triggering any flags.";
-            
-            if (status === "Malicious") {
-                alertClass = "alert-danger";
-                explanation = "This website is classified as <strong>Malicious</strong>. It has triggered severe security warnings, likely because it was found on a known threat blacklist or failed the reputation check.";
-            } else if (status === "Suspicious") {
-                alertClass = "alert-warning";
-                
-                // Try to find the exact reason
-                let reasons = [];
-                if (bd['pattern'] && bd['pattern'].includes('Failed')) reasons.push("suspicious URL patterns");
-                if (bd['dns'] && bd['dns'].includes('Failed')) reasons.push("invalid DNS records");
-                if (bd['ad_detection'] && bd['ad_detection'].includes('Failed')) reasons.push("a known advertising/popup network");
-                
-                if (reasons.length > 0) {
-                    explanation = `This website is classified as <strong>Suspicious</strong> because it was flagged for: ${reasons.join(', ')}. Proceed with caution.`;
-                } else {
-                    explanation = "This website is classified as <strong>Suspicious</strong> due to anomalies detected during the scan. Proceed with caution.";
-                }
-            }
-
-            let html = `
-                <div class="alert ${alertClass} mb-4" role="alert">
-                    <h6 class="alert-heading fw-bold mb-1">Classification: ${status}</h6>
-                    <p class="mb-0 small">${explanation}</p>
-                </div>
-                <ul class="list-group">
-            `;
-            
-            const formatItem = (key, val) => {
-                const isFail = String(val).includes("Failed") || val === "Malicious" || val === "Suspicious";
-                const badgeClass = isFail ? "bg-danger" : "bg-success";
-                const badgeText = isFail ? "Alert" : "Passed";
-                return `<li class="list-group-item d-flex justify-content-between align-items-start">
-                            <div class="ms-2 me-auto">
-                                <div class="fw-bold">${key.replace(/_/g, ' ').toUpperCase()}</div>
-                                ${val}
-                            </div>
-                            <span class="badge ${badgeClass} rounded-pill">${badgeText}</span>
-                        </li>`;
-            };
-            for (let [k, v] of Object.entries(bd)) {
-                html += formatItem(k, v);
-            }
-            html += '</ul>';
-            bodyEl.innerHTML = html;
-        }
-        
-        const modal = new bootstrap.Modal(document.getElementById('breakdownModal'));
-        modal.show();
     }
+
+    // Search & Filter
+    const search = document.getElementById('searchInput');
+    const filter = document.getElementById('statusFilter');
+    const rows = document.querySelectorAll('#logsTable tbody tr');
+    function filterTable() {
+        const q = search.value.toLowerCase();
+        const f = filter.value;
+        rows.forEach(r => {
+            if (r.children.length === 1) return;
+            const domain = r.children[0].textContent.toLowerCase();
+            const status = r.getAttribute('data-status');
+            r.style.display = (domain.includes(q) && (f === 'all' || status === f)) ? '' : 'none';
+        });
+    }
+    search.addEventListener('input', filterTable);
+    filter.addEventListener('change', filterTable);
+});
+
+// Modal
+function showBreakdown(row) {
+    const bd = JSON.parse(row.getAttribute('data-breakdown') || '{}');
+    const status = row.getAttribute('data-status');
+    const body = document.getElementById('breakdownBody');
+
+    if (!Object.keys(bd).length) {
+        body.innerHTML = '<p class="text-slate-500 text-sm">No breakdown data available.</p>';
+    } else {
+        let alertClass = 'bg-green-500/10 border-green-500/20 text-green-300';
+        let explanation = 'This website passed all security checks and is classified as <strong>Safe</strong>.';
+        if (status === 'Malicious') {
+            alertClass = 'bg-red-500/10 border-red-500/20 text-red-300';
+            explanation = 'This website is classified as <strong>Malicious</strong>. It triggered severe security warnings.';
+        } else if (status === 'Suspicious') {
+            alertClass = 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300';
+            let reasons = [];
+            if (bd.pattern && bd.pattern.includes('Failed')) reasons.push('suspicious URL patterns');
+            if (bd.dns && bd.dns.includes('Failed')) reasons.push('invalid DNS records');
+            if (bd.ad_detection && bd.ad_detection.includes('Failed')) reasons.push('known ad/popup network');
+            explanation = `This website is classified as <strong>Suspicious</strong>${reasons.length ? ' due to: ' + reasons.join(', ') : ''}. Proceed with caution.`;
+        }
+
+        let html = `<div class="p-4 rounded-xl border ${alertClass} mb-5 text-sm">${explanation}</div><div class="space-y-2">`;
+        const labels = {url_monitoring:'URL Monitoring',blacklist:'Blacklist Check',pattern:'Pattern Analysis',reputation:'Reputation Analysis',dns:'DNS Verification',ad_detection:'Ad/Popup Detection'};
+        for (let [k,v] of Object.entries(bd)) {
+            const fail = String(v).includes('Failed') || v === 'Malicious' || v === 'Suspicious';
+            html += `<div class="flex items-center justify-between p-3 rounded-xl ${fail?'bg-red-500/5 border border-red-500/10':'bg-green-500/5 border border-green-500/10'}">
+                <div><p class="text-xs font-semibold text-slate-300 uppercase tracking-wider">${labels[k]||k.replace(/_/g,' ').toUpperCase()}</p><p class="text-xs text-slate-500 mt-0.5">${v}</p></div>
+                <span class="text-xs font-medium px-2.5 py-1 rounded-full ${fail?'bg-red-500/20 text-red-400':'bg-green-500/20 text-green-400'}">${fail?'Alert':'Passed'}</span>
+            </div>`;
+        }
+        html += '</div>';
+        body.innerHTML = html;
+    }
+
+    document.getElementById('breakdownModal').classList.remove('hidden');
+    document.getElementById('breakdownModal').classList.add('flex');
+}
+
+function closeModal() {
+    document.getElementById('breakdownModal').classList.add('hidden');
+    document.getElementById('breakdownModal').classList.remove('flex');
+}
+document.getElementById('breakdownModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 </script>
 
 </body>

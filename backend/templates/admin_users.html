@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNSGuard — User Management</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='imagelogo.png') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.06); }
+        .sidebar-link { transition: all 0.2s; }
+        .sidebar-link:hover, .sidebar-link.active { background: rgba(59,130,246,0.15); color: #67e8f9; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen">
+<div class="flex min-h-screen">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-slate-900/80 border-r border-white/5 flex-shrink-0 flex flex-col fixed h-full z-30 transition-transform -translate-x-full lg:translate-x-0" id="sidebar">
+        <div class="p-5 border-b border-white/5 flex items-center gap-3">
+            <img src="{{ url_for('static', filename='imagelogo.png') }}" alt="Logo" class="w-9 h-9">
+            <span class="text-lg font-bold text-white">DNSGuard</span>
+        </div>
+        <nav class="flex-1 p-4 space-y-1">
+            <a href="/" class="sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                Dashboard
+            </a>
+            <a href="/admin/users" class="sidebar-link active flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                User Management
+            </a>
+            <a href="/admin/settings" class="sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Settings
+            </a>
+        </nav>
+        <div class="p-4 border-t border-white/5">
+            <div class="flex items-center gap-3 px-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-sm font-bold">{{ full_name[0] | upper }}</div>
+                <div><p class="text-sm font-medium text-white truncate">{{ full_name }}</p><p class="text-xs text-slate-500">{{ role }}</p></div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 lg:ml-64">
+        <header class="sticky top-0 z-20 bg-slate-950/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="lg:hidden text-slate-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+                <h1 class="text-xl font-bold">User Management</h1>
+            </div>
+            <a href="/logout" class="flex items-center gap-2 text-sm text-slate-400 hover:text-red-400 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                Logout
+            </a>
+        </header>
+
+        <div class="p-6">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="mb-4 px-4 py-3 rounded-xl text-sm {% if category == 'error' %}bg-red-500/10 text-red-300 border border-red-500/20{% elif category == 'success' %}bg-green-500/10 text-green-300 border border-green-500/20{% else %}bg-blue-500/10 text-blue-300 border border-blue-500/20{% endif %}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <!-- Create User -->
+            <div class="glass rounded-2xl p-6 mb-6">
+                <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Create New User</h3>
+                <form method="POST" action="/admin/users/create" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <input type="text" name="full_name" placeholder="Full Name" required class="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                    <input type="text" name="username" placeholder="Username" required class="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                    <input type="email" name="email" placeholder="Email" required class="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                    <input type="password" name="password" placeholder="Password" required class="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                    <select name="role" class="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                        <option value="Viewer/User">Viewer/User</option>
+                        <option value="Security Analyst">Security Analyst</option>
+                        <option value="Administrator">Administrator</option>
+                    </select>
+                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold hover:from-cyan-400 hover:to-blue-500 transition">Create User</button>
+                </form>
+            </div>
+
+            <!-- Users Table -->
+            <div class="glass rounded-2xl p-6">
+                <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">All Users ({{ users | length }})</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-slate-500 text-xs uppercase tracking-wider border-b border-white/5">
+                                <th class="px-4 py-3">User</th>
+                                <th class="px-4 py-3">Email</th>
+                                <th class="px-4 py-3">Role</th>
+                                <th class="px-4 py-3">Status</th>
+                                <th class="px-4 py-3 hidden md:table-cell">Created</th>
+                                <th class="px-4 py-3 hidden md:table-cell">Last Login</th>
+                                <th class="px-4 py-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5">
+                            {% for user in users %}
+                            <tr class="hover:bg-white/[0.02] transition">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold">{{ user.full_name[0] | upper if user.full_name else 'U' }}</div>
+                                        <div>
+                                            <p class="font-medium text-white text-sm">{{ user.full_name or user.username }}</p>
+                                            <p class="text-xs text-slate-500">@{{ user.username }}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-slate-400">{{ user.email }}</td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
+                                        {% if user.role == 'Administrator' %}bg-purple-500/10 text-purple-400 border border-purple-500/20
+                                        {% elif user.role == 'Security Analyst' %}bg-amber-500/10 text-amber-400 border border-amber-500/20
+                                        {% else %}bg-cyan-500/10 text-cyan-400 border border-cyan-500/20{% endif %}">
+                                        {{ user.role }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    {% if user.is_active %}
+                                    <span class="flex items-center gap-1.5 text-xs text-green-400"><span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>Active</span>
+                                    {% else %}
+                                    <span class="flex items-center gap-1.5 text-xs text-slate-500"><span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 hidden md:table-cell text-xs text-slate-500">{{ user.created_at }}</td>
+                                <td class="px-4 py-3 hidden md:table-cell text-xs text-slate-500">{{ user.last_login or 'Never' }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="openEditModal({{ user.id }}, '{{ user.full_name }}', '{{ user.email }}', '{{ user.role }}', {{ 'true' if user.is_active else 'false' }})" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium">Edit</button>
+                                        <form method="POST" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user?')">
+                                            <button type="submit" class="text-red-400 hover:text-red-300 text-xs font-medium">Delete</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-white/10 rounded-2xl max-w-md w-full shadow-2xl">
+        <div class="flex items-center justify-between p-6 border-b border-white/5">
+            <h3 class="text-lg font-bold text-white">Edit User</h3>
+            <button onclick="closeEditModal()" class="text-slate-400 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        <form id="editForm" method="POST" class="p-6 space-y-4">
+            <div>
+                <label class="block text-slate-400 text-xs font-medium mb-1.5">Full Name</label>
+                <input type="text" name="full_name" id="editName" class="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+            </div>
+            <div>
+                <label class="block text-slate-400 text-xs font-medium mb-1.5">Email</label>
+                <input type="email" name="email" id="editEmail" class="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+            </div>
+            <div>
+                <label class="block text-slate-400 text-xs font-medium mb-1.5">Role</label>
+                <select name="role" id="editRole" class="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                    <option value="Viewer/User">Viewer/User</option>
+                    <option value="Security Analyst">Security Analyst</option>
+                    <option value="Administrator">Administrator</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-slate-400 text-xs font-medium mb-1.5">Status</label>
+                <select name="is_active" id="editActive" class="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold hover:from-cyan-400 hover:to-blue-500 transition">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(id, name, email, role, active) {
+    document.getElementById('editForm').action = `/admin/users/${id}/update`;
+    document.getElementById('editName').value = name;
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editRole').value = role;
+    document.getElementById('editActive').value = active ? 'true' : 'false';
+    document.getElementById('editModal').classList.remove('hidden');
+    document.getElementById('editModal').classList.add('flex');
+}
+function closeEditModal() {
+    document.getElementById('editModal').classList.add('hidden');
+    document.getElementById('editModal').classList.remove('flex');
+}
+document.getElementById('editModal').addEventListener('click', function(e) { if(e.target===this) closeEditModal(); });
+</script>
+</body>
+</html>
