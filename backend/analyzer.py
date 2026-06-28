@@ -49,11 +49,31 @@ def check_pattern(domain):
         if len(parts) > 3 or parts[-1] not in ['com', 'org', 'net']:
             return True
             
-    # Suspicious pattern 5: Random characters (high entropy)
-    if len(parts) >= 2:
-        main_domain = parts[-2]
+    # Suspicious pattern 5: Long or high-entropy subdomains (typical of popups/DGA/tracking)
+    if len(parts) > 2:
+        subdomains = parts[:-2] # Get everything before registered_domain.tld
+        for sub in subdomains:
+            # Subdomains longer than 15 chars are highly suspicious
+            if len(sub) > 15:
+                return True
+            # Subdomains with high entropy (random looking)
+            if len(sub) > 8 and calculate_entropy(sub) > 3.8:
+                return True
+    elif len(parts) == 2:
+        # Check primary domain part
+        main_domain = parts[0]
+        if len(main_domain) > 15:
+            return True
         if len(main_domain) > 10 and calculate_entropy(main_domain) > 4.0:
             return True
+
+    # Suspicious pattern 6: Ad/Popup related keywords in subdomains
+    if len(parts) > 2:
+        ad_popup_keywords = ['pop', 'ad', 'click', 'track', 'affiliate', 'serve', 'banner', 'redir']
+        subdomains = parts[:-2]
+        for sub in subdomains:
+            if any(keyword == sub or sub.startswith(keyword + '-') or sub.endswith('-' + keyword) for keyword in ad_popup_keywords):
+                return True
 
     return False
 
