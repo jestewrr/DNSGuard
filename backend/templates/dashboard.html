@@ -103,7 +103,7 @@
                         </thead>
                         <tbody>
                             {% for log in logs %}
-                            <tr style="cursor: pointer;" onclick="showBreakdown(this)" data-breakdown='{{ log.breakdown | tojson | forceescape if log.breakdown else "{}" }}'>
+                            <tr style="cursor: pointer;" onclick="showBreakdown(this)" data-status="{{ log.status }}" data-breakdown='{{ log.breakdown | tojson | forceescape if log.breakdown else "{}" }}'>
                                 <td>{{ log.timestamp }}</td>
                                 <td class="text-truncate" style="max-width: 200px;" title="{{ log.url }}">{{ log.domain }}</td>
                                 <td>
@@ -212,6 +212,7 @@
 
     function showBreakdown(rowEl) {
         const bdString = rowEl.getAttribute('data-breakdown');
+        const status = rowEl.getAttribute('data-status');
         let bd = {};
         try { bd = JSON.parse(bdString); } catch(e){}
         
@@ -220,7 +221,37 @@
         if (Object.keys(bd).length === 0) {
             bodyEl.innerHTML = "<p class='text-muted'>No breakdown data available for this log.</p>";
         } else {
-            let html = '<ul class="list-group">';
+            // Generate an explanation based on status and breakdown
+            let alertClass = "alert-success";
+            let explanation = "This website is classified as <strong>Safe</strong> because it successfully passed all our automated security checks without triggering any flags.";
+            
+            if (status === "Malicious") {
+                alertClass = "alert-danger";
+                explanation = "This website is classified as <strong>Malicious</strong>. It has triggered severe security warnings, likely because it was found on a known threat blacklist or failed the reputation check.";
+            } else if (status === "Suspicious") {
+                alertClass = "alert-warning";
+                
+                // Try to find the exact reason
+                let reasons = [];
+                if (bd['pattern'] && bd['pattern'].includes('Failed')) reasons.push("suspicious URL patterns");
+                if (bd['dns'] && bd['dns'].includes('Failed')) reasons.push("invalid DNS records");
+                if (bd['ad_detection'] && bd['ad_detection'].includes('Failed')) reasons.push("a known advertising/popup network");
+                
+                if (reasons.length > 0) {
+                    explanation = `This website is classified as <strong>Suspicious</strong> because it was flagged for: ${reasons.join(', ')}. Proceed with caution.`;
+                } else {
+                    explanation = "This website is classified as <strong>Suspicious</strong> due to anomalies detected during the scan. Proceed with caution.";
+                }
+            }
+
+            let html = `
+                <div class="alert ${alertClass} mb-4" role="alert">
+                    <h6 class="alert-heading fw-bold mb-1">Classification: ${status}</h6>
+                    <p class="mb-0 small">${explanation}</p>
+                </div>
+                <ul class="list-group">
+            `;
+            
             const formatItem = (key, val) => {
                 const isFail = String(val).includes("Failed") || val === "Malicious" || val === "Suspicious";
                 const badgeClass = isFail ? "bg-danger" : "bg-success";
