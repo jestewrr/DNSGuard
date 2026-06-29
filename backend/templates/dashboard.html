@@ -87,6 +87,32 @@
                     {% else %}bg-cyan-500/20 text-cyan-300 border border-cyan-500/30{% endif %}">
                     {{ role }}
                 </span>
+                
+                <!-- Notification Bell -->
+                <div class="relative group">
+                    <button class="relative p-2 text-slate-400 hover:text-white transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                        {% if notifications and notifications|length > 0 %}
+                        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                        {% endif %}
+                    </button>
+                    <div class="absolute right-0 mt-2 w-80 bg-slate-800 border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                        <div class="p-3 border-b border-white/5 font-semibold text-sm">Notifications</div>
+                        <div class="max-h-64 overflow-y-auto">
+                            {% if notifications %}
+                                {% for n in notifications %}
+                                <div class="p-3 border-b border-white/5 hover:bg-white/5 cursor-pointer" onclick="markRead({{ n.id }})">
+                                    <p class="text-xs text-slate-300">{{ n.message }}</p>
+                                    <p class="text-[10px] text-slate-500 mt-1">{{ n.timestamp.split('.')[0] if n.timestamp is string else n.timestamp }}</p>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="p-4 text-center text-xs text-slate-500">No new notifications</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
                 <a href="/logout" class="flex items-center gap-2 text-sm text-slate-400 hover:text-red-400 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                     Logout
@@ -328,7 +354,23 @@ document.addEventListener("DOMContentLoaded", function() {
                     borderRadius: 4
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16, usePointStyle: true, pointStyleWidth: 8 } } } },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                cutout: '70%', 
+                plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16, usePointStyle: true, pointStyleWidth: 8 } } },
+                onClick: function(event, elements) {
+                    if (elements.length > 0) {
+                        const idx = elements[0].index;
+                        const status = this.data.labels[idx];
+                        document.getElementById('statusFilter').value = status;
+                        document.getElementById('statusFilter').dispatchEvent(new Event('change'));
+                    } else {
+                        document.getElementById('statusFilter').value = 'all';
+                        document.getElementById('statusFilter').dispatchEvent(new Event('change'));
+                    }
+                }
+            },
             plugins: [{
                 id: 'textCenter',
                 beforeDraw: function(chart) {
@@ -380,6 +422,11 @@ document.addEventListener("DOMContentLoaded", function() {
     filter.addEventListener('change', filterTable);
 });
 
+function markRead(id) {
+    fetch(`/api/notifications/${id}/read`, {method:'POST'})
+    .then(() => location.reload());
+}
+
 // Modal
 function showBreakdown(row) {
     const bd = JSON.parse(row.getAttribute('data-breakdown') || '{}');
@@ -389,32 +436,92 @@ function showBreakdown(row) {
     if (!Object.keys(bd).length) {
         body.innerHTML = '<p class="text-slate-500 text-sm">No breakdown data available.</p>';
     } else {
-        let alertClass = 'bg-green-500/10 border-green-500/20 text-green-300';
-        let explanation = 'This website passed all security checks and is classified as <strong>Safe</strong>.';
-        if (status === 'Malicious') {
-            alertClass = 'bg-red-500/10 border-red-500/20 text-red-300';
-            explanation = 'This website is classified as <strong>Malicious</strong>. It triggered severe security warnings.';
-        } else if (status === 'Suspicious') {
-            alertClass = 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300';
-            let reasons = [];
-            if (bd.pattern && bd.pattern.includes('Failed')) reasons.push('suspicious URL patterns');
-            if (bd.dns && bd.dns.includes('Failed')) reasons.push('invalid DNS records');
-            if (bd.ad_detection && bd.ad_detection.includes('Failed')) reasons.push('known ad/popup network');
-            explanation = `This website is classified as <strong>Suspicious</strong>${reasons.length ? ' due to: ' + reasons.join(', ') : ''}. Proceed with caution.`;
+        let html = '';
+        
+        // Summary Card
+        if (bd.summary) {
+            const sc = bd.summary;
+            const alertClass = (sc.final_status === 'Malicious') ? 'bg-red-500/10 border-red-500/20 text-red-300' : (sc.final_status === 'Suspicious' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300' : 'bg-green-500/10 border-green-500/20 text-green-300');
+            html += `<div class="p-4 rounded-xl border ${alertClass} mb-5 flex flex-col gap-2">
+                <div class="flex justify-between items-center"><span class="text-xs uppercase tracking-wider opacity-70">Analyzed URL</span><span class="font-mono text-sm max-w-[200px] truncate" title="${sc.url}">${sc.url}</span></div>
+                <div class="flex justify-between items-center"><span class="text-xs uppercase tracking-wider opacity-70">Timestamp</span><span class="text-sm">${sc.timestamp.split('.')[0].replace('T', ' ')}</span></div>
+                <div class="flex justify-between items-center"><span class="text-xs uppercase tracking-wider opacity-70">Confidence</span><span class="font-bold text-lg">${sc.overall_confidence}</span></div>
+                <div class="flex justify-between items-center"><span class="text-xs uppercase tracking-wider opacity-70">Checks</span><span class="text-sm">${sc.checks_completed}</span></div>
+            </div>`;
+        } else {
+            // Fallback for older logs without new JSON structure
+            html += `<div class="p-4 rounded-xl border bg-slate-800 border-white/10 mb-5 text-sm text-slate-300">Legacy Scan Record</div>`;
+        }
+        
+        html += '<div class="space-y-3">';
+        
+        // Render Checks
+        const checks = [
+            { key: 'dns', title: 'DNS Verification' },
+            { key: 'blacklist', title: 'Blacklist Verification' },
+            { key: 'pattern', title: 'Pattern Analysis' },
+            { key: 'reputation', title: 'Reputation Analysis' },
+            { key: 'ad_detection', title: 'Ad & Popup Detection' }
+        ];
+
+        checks.forEach(check => {
+            if (bd[check.key]) {
+                // Handle rich objects
+                if (typeof bd[check.key] === 'object') {
+                    const item = bd[check.key];
+                    const fail = item.status === 'Failed';
+                    const bgClass = fail ? 'bg-red-500/5 border border-red-500/10' : 'bg-green-500/5 border border-green-500/10';
+                    const badgeClass = fail ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400';
+                    
+                    let detailsHtml = '';
+                    if (check.key === 'dns' && item.ip) detailsHtml += `<div class="text-[10px] text-slate-400 mt-1 font-mono">Resolved IP: ${item.ip}</div>`;
+                    if (check.key === 'blacklist') detailsHtml += `<div class="text-[10px] text-slate-400 mt-1">DBs Checked: ${item.databases_checked} | Confidence: ${item.confidence}%</div>`;
+                    if (check.key === 'pattern') detailsHtml += `<div class="text-[10px] text-slate-400 mt-1">Entropy: ${item.entropy_score} | High Entropy: ${item.high_entropy} | High Subdomains: ${item.excessive_subdomains}</div>`;
+                    if (check.key === 'reputation' && item.provider) detailsHtml += `<div class="text-[10px] text-slate-400 mt-1">Provider: ${item.provider} | Confidence: ${item.confidence}%</div>`;
+                    if (check.key === 'ad_detection') detailsHtml += `<div class="text-[10px] text-slate-400 mt-1">Risk Score: ${item.risk_score}</div>`;
+
+                    html += `<div class="p-3 rounded-xl ${bgClass}">
+                        <div class="flex justify-between items-start">
+                            <div class="pr-3">
+                                <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider">${check.title}</p>
+                                <p class="text-xs text-slate-500 mt-0.5">${item.message}</p>
+                                ${detailsHtml}
+                            </div>
+                            <span class="text-[10px] font-medium px-2 py-0.5 rounded-full ${badgeClass}">${item.status}</span>
+                        </div>
+                    </div>`;
+                } else {
+                    // Fallback for older string-based logs
+                    const v = bd[check.key];
+                    const fail = String(v).includes('Failed');
+                    const bgClass = fail ? 'bg-red-500/5 border border-red-500/10' : 'bg-green-500/5 border border-green-500/10';
+                    const badgeClass = fail ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400';
+                    html += `<div class="p-3 rounded-xl ${bgClass}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider">${check.title}</p>
+                                <p class="text-xs text-slate-500 mt-0.5">${v}</p>
+                            </div>
+                            <span class="text-[10px] font-medium px-2 py-0.5 rounded-full ${badgeClass}">${fail ? 'Alert' : 'Passed'}</span>
+                        </div>
+                    </div>`;
+                }
+            }
+        });
+
+        // Add analyst note if present
+        if (bd.reclassified_by_analyst) {
+             html += `<div class="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10 mt-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Analyst Override</p>
+                            <p class="text-xs text-slate-500 mt-0.5">${bd.reclassified_by_analyst}</p>
+                        </div>
+                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Override</span>
+                    </div>
+                </div>`;
         }
 
-        let html = `<div class="p-4 rounded-xl border ${alertClass} mb-5 text-sm">${explanation}</div><div class="space-y-2">`;
-        const labels = {url_monitoring:'URL Monitoring',blacklist:'Blacklist Check',pattern:'Pattern Analysis',reputation:'Reputation Analysis',dns:'DNS Verification',ad_detection:'Ad/Popup Detection',reclassified_by_analyst:'Analyst Note'};
-        for (let [k,v] of Object.entries(bd)) {
-            const fail = String(v).includes('Failed') || v === 'Malicious' || v === 'Suspicious';
-            const badgeClass = (k === 'reclassified_by_analyst') ? 'bg-blue-500/20 text-blue-400' : (fail ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400');
-            const badgeText = (k === 'reclassified_by_analyst') ? 'Override' : (fail ? 'Alert' : 'Passed');
-            const bgClass = (k === 'reclassified_by_analyst') ? 'bg-blue-500/5 border border-blue-500/10' : (fail ? 'bg-red-500/5 border border-red-500/10' : 'bg-green-500/5 border border-green-500/10');
-            html += `<div class="flex items-center justify-between p-3 rounded-xl ${bgClass}">
-                <div><p class="text-xs font-semibold text-slate-300 uppercase tracking-wider">${labels[k]||k.replace(/_/g,' ').toUpperCase()}</p><p class="text-xs text-slate-500 mt-0.5">${v}</p></div>
-                <span class="text-xs font-medium px-2.5 py-1 rounded-full ${badgeClass}">${badgeText}</span>
-            </div>`;
-        }
         html += '</div>';
         body.innerHTML = html;
     }

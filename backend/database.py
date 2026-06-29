@@ -95,6 +95,31 @@ def init_db():
             )
         ''')
 
+        # ── Reclassification History ──
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ReclassificationHistory (
+                id SERIAL PRIMARY KEY,
+                domain TEXT NOT NULL,
+                old_status TEXT NOT NULL,
+                new_status TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # ── Notifications ──
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                message TEXT NOT NULL,
+                domain TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
         # Insert some dummy blacklist entries if empty
         cursor.execute('SELECT COUNT(*) FROM Blacklist')
         if cursor.fetchone()[0] == 0:
@@ -525,6 +550,78 @@ def reset_password(token, new_password):
         return True
     except Exception as e:
         print(f"Error resetting password: {e}")
+        return False
+
+# ──────────────────────────────────────────────
+# Notifications & Reclassification Tracking
+# ──────────────────────────────────────────────
+
+def add_reclassification_history(domain, old_status, new_status, reason):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO ReclassificationHistory (domain, old_status, new_status, reason) VALUES (%s, %s, %s, %s)',
+            (domain, old_status, new_status, reason)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error adding reclassification history: {e}")
+
+def get_reclassification_history(domain=None, limit=50):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if domain:
+            cursor.execute('SELECT * FROM ReclassificationHistory WHERE domain = %s ORDER BY timestamp DESC LIMIT %s', (domain, limit))
+        else:
+            cursor.execute('SELECT * FROM ReclassificationHistory ORDER BY timestamp DESC LIMIT %s', (limit,))
+        history = cursor.fetchall()
+        conn.close()
+        return [dict(h) for h in history]
+    except Exception as e:
+        print(f"Error fetching reclassification history: {e}")
+        return []
+
+def add_notification(user_id, notif_type, message, domain):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO Notifications (user_id, type, message, domain) VALUES (%s, %s, %s, %s)',
+            (user_id, notif_type, message, domain)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error adding notification: {e}")
+
+def get_notifications(user_id, unread_only=False, limit=20):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if unread_only:
+            cursor.execute('SELECT * FROM Notifications WHERE user_id = %s AND is_read = FALSE ORDER BY timestamp DESC LIMIT %s', (user_id, limit))
+        else:
+            cursor.execute('SELECT * FROM Notifications WHERE user_id = %s ORDER BY timestamp DESC LIMIT %s', (user_id, limit))
+        notifs = cursor.fetchall()
+        conn.close()
+        return [dict(n) for n in notifs]
+    except Exception as e:
+        print(f"Error getting notifications: {e}")
+        return []
+
+def mark_notification_read(notification_id, user_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE Notifications SET is_read = TRUE WHERE id = %s AND user_id = %s', (notification_id, user_id))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error marking notification read: {e}")
         return False
 
 

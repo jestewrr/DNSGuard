@@ -6,16 +6,21 @@ from database import (
     update_last_login, reclassify_log,
     get_blacklist, get_whitelist, add_to_blacklist, remove_from_blacklist,
     add_to_whitelist, remove_from_whitelist,
-    create_reset_token, verify_reset_token, reset_password
+    create_reset_token, verify_reset_token, reset_password,
+    get_notifications, mark_notification_read, get_reclassification_history
 )
 from analyzer import analyze_url, extract_domain
 import json
+from scheduler import start_scheduler
 
 app = Flask(__name__)
 app.secret_key = 'dnsguard_super_secret_key_change_in_prod'
 
 # Initialize database on startup
 init_db()
+
+# Start background reclassification monitor
+start_scheduler()
 
 # ──────────────────────────────────────────────
 # Security Headers Middleware (Fixes scanned vulnerabilities)
@@ -224,13 +229,17 @@ def dashboard():
         stats = get_log_stats()
         analytics = get_global_analytics()
 
+    # Fetch notifications for the user
+    notifications = get_notifications(user_id, unread_only=True)
+
     return render_template('dashboard.html',
         logs=logs,
         stats=stats,
         analytics=analytics,
         role=role,
         username=session.get('username'),
-        full_name=session.get('full_name', session.get('username'))
+        full_name=session.get('full_name', session.get('username')),
+        notifications=notifications
     )
 
 # ──────────────────────────────────────────────
@@ -390,6 +399,13 @@ def api_register():
         return jsonify({'success': True, 'user_id': result})
     else:
         return jsonify({'success': False, 'error': result}), 400
+
+@app.route('/api/notifications/<int:notif_id>/read', methods=['POST'])
+@login_required
+def read_notification(notif_id):
+    user_id = session.get('user_id')
+    success = mark_notification_read(notif_id, user_id)
+    return jsonify({'success': success})
 
 @app.route('/api/check_url', methods=['POST'])
 def check_url():
