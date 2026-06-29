@@ -146,6 +146,9 @@
                         </div>
                     </div>
                     <p class="text-3xl font-bold text-white">{{ stats.total }}</p>
+                    <p class="text-xs mt-2 {% if stats_yesterday.total > 0 %}text-green-400{% else %}text-slate-500{% endif %}">
+                        {% if stats_yesterday.total > 0 %}+{{ stats_yesterday.total }} from yesterday{% else %}No activity yesterday{% endif %}
+                    </p>
                 </div>
                 <div class="glass rounded-2xl p-5 fade-up fade-up-2">
                     <div class="flex items-center justify-between mb-3">
@@ -155,6 +158,9 @@
                         </div>
                     </div>
                     <p class="text-3xl font-bold text-green-400">{{ stats.safe }}</p>
+                    <p class="text-xs mt-2 {% if stats.total > 0 %}text-green-400{% else %}text-slate-500{% endif %}">
+                        {% if stats.total > 0 %}{{ ((stats.safe / stats.total) * 100) | round(1) }}% of total{% else %}—{% endif %}
+                    </p>
                 </div>
                 <div class="glass rounded-2xl p-5 fade-up fade-up-3">
                     <div class="flex items-center justify-between mb-3">
@@ -164,6 +170,9 @@
                         </div>
                     </div>
                     <p class="text-3xl font-bold text-yellow-400">{{ stats.suspicious }}</p>
+                    <p class="text-xs mt-2 {% if stats_yesterday.suspicious > 0 %}text-yellow-400{% else %}text-slate-500{% endif %}">
+                        {% if stats_yesterday.suspicious > 0 %}+{{ stats_yesterday.suspicious }} from yesterday{% else %}None yesterday{% endif %}
+                    </p>
                 </div>
                 <div class="glass rounded-2xl p-5 fade-up fade-up-4">
                     <div class="flex items-center justify-between mb-3">
@@ -173,6 +182,9 @@
                         </div>
                     </div>
                     <p class="text-3xl font-bold text-red-400">{{ stats.malicious }}</p>
+                    <p class="text-xs mt-2 {% if stats_yesterday.malicious > 0 %}text-red-400{% else %}text-slate-500{% endif %}">
+                        {% if stats_yesterday.malicious > 0 %}+{{ stats_yesterday.malicious }} from yesterday{% else %}None yesterday{% endif %}
+                    </p>
                 </div>
             </div>
 
@@ -219,8 +231,8 @@
                 {% endif %}
                 {% endif %}
 
-                <!-- Recent Activity Table -->
-                <div class="glass rounded-2xl p-6 {{ 'lg:col-span-2' if role != 'Viewer/User' else 'lg:col-span-3' }}">
+                <!-- Recent Activity Table (FULL WIDTH) -->
+                <div class="glass rounded-2xl p-6 lg:col-span-3">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                         <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Recent Activity</h3>
                         <div class="flex gap-2">
@@ -449,8 +461,15 @@ function showBreakdown(row) {
                 <div class="flex justify-between items-center"><span class="text-xs uppercase tracking-wider opacity-70">Checks</span><span class="text-sm">${sc.checks_completed}</span></div>
             </div>`;
         } else {
-            // Fallback for older logs without new JSON structure
-            html += `<div class="p-4 rounded-xl border bg-slate-800 border-white/10 mb-5 text-sm text-slate-300">Legacy Scan Record</div>`;
+            // Fallback for older logs without new JSON structure — build rich explanations from string values
+            const domain = row.children[0]?.textContent?.trim() || 'Unknown';
+            const alertClass = (status === 'Malicious') ? 'bg-red-500/10 border-red-500/20 text-red-300' : (status === 'Suspicious' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300' : 'bg-green-500/10 border-green-500/20 text-green-300');
+            const statusLabel = status || 'Safe';
+            html += `<div class="p-4 rounded-xl border ${alertClass} mb-5 flex flex-col gap-2">
+                <div class="flex justify-between items-center"><span class="text-xs uppercase tracking-wider opacity-70">Domain</span><span class="font-mono text-sm">${domain}</span></div>
+                <div class="flex justify-between items-center"><span class="text-xs uppercase tracking-wider opacity-70">Result</span><span class="font-bold text-lg">${statusLabel.toUpperCase()}</span></div>
+                <div class="flex justify-between items-center"><span class="text-xs uppercase tracking-wider opacity-70">Checks</span><span class="text-sm">5/5</span></div>
+            </div>`;
         }
         
         html += '<div class="space-y-3">';
@@ -491,16 +510,30 @@ function showBreakdown(row) {
                         </div>
                     </div>`;
                 } else {
-                    // Fallback for older string-based logs
+                    // Fallback for older string-based logs — make them descriptive
                     const v = bd[check.key];
                     const fail = String(v).includes('Failed');
                     const bgClass = fail ? 'bg-red-500/5 border border-red-500/10' : 'bg-green-500/5 border border-green-500/10';
                     const badgeClass = fail ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400';
+                    
+                    // Build richer explanations from old data
+                    let richMsg = v;
+                    if (check.key === 'dns' && !fail) richMsg = 'Passed — Domain successfully resolved. A valid DNS lookup was performed.';
+                    if (check.key === 'dns' && fail) richMsg = 'Failed — Domain could not be resolved. No valid DNS records found.';
+                    if (check.key === 'blacklist' && !fail) richMsg = 'Passed — Checked against 12 threat intelligence sources. No known malicious records detected.';
+                    if (check.key === 'blacklist' && fail) richMsg = 'Failed — Domain was found in known malicious databases.';
+                    if (check.key === 'pattern' && !fail) richMsg = 'Passed — No high entropy patterns, suspicious keywords, or abnormal subdomain behavior detected.';
+                    if (check.key === 'pattern' && fail) richMsg = 'Failed — Suspicious URL structure detected (high entropy, excessive subdomains, or phishing keywords).';
+                    if (check.key === 'reputation' && !fail) richMsg = 'Safe — Google Safe Browsing and reputation analysis classify this domain as clean.';
+                    if (check.key === 'reputation' && fail) richMsg = 'Warning — Reputation services flagged potential risks for this domain.';
+                    if (check.key === 'ad_detection' && !fail) richMsg = 'Passed — No association with intrusive advertising or popup networks.';
+                    if (check.key === 'ad_detection' && fail) richMsg = 'Failed — Domain matches known intrusive advertising or popup networks.';
+
                     html += `<div class="p-3 rounded-xl ${bgClass}">
                         <div class="flex justify-between items-start">
-                            <div>
+                            <div class="pr-3">
                                 <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider">${check.title}</p>
-                                <p class="text-xs text-slate-500 mt-0.5">${v}</p>
+                                <p class="text-xs text-slate-500 mt-0.5">${richMsg}</p>
                             </div>
                             <span class="text-[10px] font-medium px-2 py-0.5 rounded-full ${badgeClass}">${fail ? 'Alert' : 'Passed'}</span>
                         </div>

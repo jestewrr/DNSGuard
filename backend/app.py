@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
 from functools import wraps
 from database import (
-    init_db, log_request, get_recent_logs, get_log_stats, get_global_analytics,
+    init_db, log_request, get_recent_logs, get_log_stats, get_log_stats_yesterday, get_global_analytics,
     verify_user, get_user_by_id, create_user, get_all_users, update_user, delete_user,
     update_last_login, reclassify_log,
     get_blacklist, get_whitelist, add_to_blacklist, remove_from_blacklist,
@@ -224,9 +224,11 @@ def dashboard():
     if role == 'Viewer/User':
         logs = get_recent_logs(user_id=user_id)
         stats = get_log_stats(user_id=user_id)
+        stats_yesterday = get_log_stats_yesterday(user_id=user_id)
     else:
         logs = get_recent_logs()
         stats = get_log_stats()
+        stats_yesterday = get_log_stats_yesterday()
         analytics = get_global_analytics()
 
     # Fetch notifications for the user
@@ -235,6 +237,7 @@ def dashboard():
     return render_template('dashboard.html',
         logs=logs,
         stats=stats,
+        stats_yesterday=stats_yesterday,
         analytics=analytics,
         role=role,
         username=session.get('username'),

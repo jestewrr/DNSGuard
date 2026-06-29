@@ -187,21 +187,48 @@ def get_recent_logs(limit=100, user_id=None):
         return []
 
 def reclassify_log(log_id, new_status, analyst_name="Analyst"):
-    """Allows a Security Analyst to reclassify a log entry."""
+    """Allows a Security Analyst to reclassify a log entry. Also notifies affected users."""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT breakdown FROM Logs WHERE id = %s', (log_id,))
+        cursor.execute('SELECT domain, status, breakdown FROM Logs WHERE id = %s', (log_id,))
         row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return False
+
+        old_status = row['status']
+        domain = row['domain']
         
-        if row and row['breakdown']:
+        if row['breakdown']:
             breakdown = row['breakdown']
             breakdown['reclassified_by_analyst'] = f"Status was manually overridden to {new_status} by {analyst_name}."
             cursor.execute('UPDATE Logs SET status = %s, breakdown = %s WHERE id = %s', (new_status, json.dumps(breakdown), log_id))
         else:
             cursor.execute('UPDATE Logs SET status = %s WHERE id = %s', (new_status, log_id))
-            
+        
         conn.commit()
+
+        # Notify all users who visited this domain (except the analyst performing the action)
+        if old_status != new_status:
+            cursor.execute('SELECT DISTINCT user_id FROM Logs WHERE domain = %s AND user_id IS NOT NULL', (domain,))
+            users = cursor.fetchall()
+            for u in users:
+                msg = f"⚠️ {domain} was reclassified from {old_status} to {new_status} by {analyst_name}."
+                cursor.execute(
+                    'INSERT INTO Notifications (user_id, type, message, domain) VALUES (%s, %s, %s, %s)',
+                    (u['user_id'], 'RECLASSIFICATION', msg, domain)
+                )
+            conn.commit()
+            
+            # Also log to reclassification history
+            reason = f"Manually reclassified by {analyst_name}"
+            cursor.execute(
+                'INSERT INTO ReclassificationHistory (domain, old_status, new_status, reason) VALUES (%s, %s, %s, %s)',
+                (domain, old_status, new_status, reason)
+            )
+            conn.commit()
+
         conn.close()
         return True
     except Exception as e:
@@ -230,6 +257,38 @@ def get_log_stats(user_id=None):
         return stats
     except Exception as e:
         print(f"Error getting stats: {e}")
+        return {'total': 0, 'safe': 0, 'suspicious': 0, 'malicious': 0}
+
+def get_log_stats_yesterday(user_id=None):
+    """Get stats from yesterday for comparison."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        yesterday = (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d')
+        today = datetime.utcnow().strftime('%Y-%m-%d')
+        if user_id:
+            cursor.execute("""
+                SELECT status, COUNT(*) as count FROM Logs 
+                WHERE user_id = %s AND timestamp >= %s AND timestamp < %s
+                GROUP BY status
+            """, (user_id, yesterday, today))
+        else:
+            cursor.execute("""
+                SELECT status, COUNT(*) as count FROM Logs 
+                WHERE timestamp >= %s AND timestamp < %s
+                GROUP BY status
+            """, (yesterday, today))
+        rows = cursor.fetchall()
+        conn.close()
+        stats = {'total': 0, 'safe': 0, 'suspicious': 0, 'malicious': 0}
+        for row in rows:
+            s = row['status'].lower()
+            if s in stats:
+                stats[s] = row['count']
+            stats['total'] += row['count']
+        return stats
+    except Exception as e:
+        print(f"Error getting yesterday stats: {e}")
         return {'total': 0, 'safe': 0, 'suspicious': 0, 'malicious': 0}
 
 def get_global_analytics():
