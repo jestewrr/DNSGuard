@@ -95,6 +95,31 @@ def init_db():
             )
         ''')
 
+        # ── Reclassification History ──
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ReclassificationHistory (
+                id SERIAL PRIMARY KEY,
+                domain TEXT NOT NULL,
+                old_status TEXT NOT NULL,
+                new_status TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # ── Notifications ──
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                message TEXT NOT NULL,
+                domain TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
         # Insert some dummy blacklist entries if empty
         cursor.execute('SELECT COUNT(*) FROM Blacklist')
         if cursor.fetchone()[0] == 0:
@@ -143,10 +168,17 @@ def get_recent_logs(limit=100, user_id=None):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        query = '''
+            SELECT l.*, u.username, u.full_name 
+            FROM Logs l 
+            LEFT JOIN Users u ON l.user_id = u.id 
+        '''
         if user_id:
-            cursor.execute('SELECT * FROM Logs WHERE user_id = %s ORDER BY timestamp DESC LIMIT %s', (user_id, limit))
+            query += 'WHERE l.user_id = %s ORDER BY l.timestamp DESC LIMIT %s'
+            cursor.execute(query, (user_id, limit))
         else:
-            cursor.execute('SELECT * FROM Logs ORDER BY timestamp DESC LIMIT %s', (limit,))
+            query += 'ORDER BY l.timestamp DESC LIMIT %s'
+            cursor.execute(query, (limit,))
         logs = cursor.fetchall()
         conn.close()
         return [dict(log) for log in logs]
@@ -154,12 +186,21 @@ def get_recent_logs(limit=100, user_id=None):
         print(f"Error fetching logs: {e}")
         return []
 
-def reclassify_log(log_id, new_status):
+def reclassify_log(log_id, new_status, analyst_name="Analyst"):
     """Allows a Security Analyst to reclassify a log entry."""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('UPDATE Logs SET status = %s WHERE id = %s', (new_status, log_id))
+        cursor.execute('SELECT breakdown FROM Logs WHERE id = %s', (log_id,))
+        row = cursor.fetchone()
+        
+        if row and row['breakdown']:
+            breakdown = row['breakdown']
+            breakdown['reclassified_by_analyst'] = f"Status was manually overridden to {new_status} by {analyst_name}."
+            cursor.execute('UPDATE Logs SET status = %s, breakdown = %s WHERE id = %s', (new_status, json.dumps(breakdown), log_id))
+        else:
+            cursor.execute('UPDATE Logs SET status = %s WHERE id = %s', (new_status, log_id))
+            
         conn.commit()
         conn.close()
         return True
@@ -190,6 +231,39 @@ def get_log_stats(user_id=None):
     except Exception as e:
         print(f"Error getting stats: {e}")
         return {'total': 0, 'safe': 0, 'suspicious': 0, 'malicious': 0}
+
+def get_global_analytics():
+    """Get most visited domains and most active users for admins."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Top domains
+        cursor.execute('''
+            SELECT domain, COUNT(*) as count 
+            FROM Logs 
+            GROUP BY domain 
+            ORDER BY count DESC 
+            LIMIT 5
+        ''')
+        top_domains = [dict(r) for r in cursor.fetchall()]
+        
+        # Top users
+        cursor.execute('''
+            SELECT u.username, COUNT(l.id) as count 
+            FROM Logs l 
+            JOIN Users u ON l.user_id = u.id 
+            GROUP BY u.username 
+            ORDER BY count DESC 
+            LIMIT 5
+        ''')
+        top_users = [dict(r) for r in cursor.fetchall()]
+        
+        conn.close()
+        return {'top_domains': top_domains, 'top_users': top_users}
+    except Exception as e:
+        print(f"Error getting analytics: {e}")
+        return {'top_domains': [], 'top_users': []}
 
 # ──────────────────────────────────────────────
 # Blacklist / Whitelist
@@ -476,6 +550,78 @@ def reset_password(token, new_password):
         return True
     except Exception as e:
         print(f"Error resetting password: {e}")
+        return False
+
+# ──────────────────────────────────────────────
+# Notifications & Reclassification Tracking
+# ──────────────────────────────────────────────
+
+def add_reclassification_history(domain, old_status, new_status, reason):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO ReclassificationHistory (domain, old_status, new_status, reason) VALUES (%s, %s, %s, %s)',
+            (domain, old_status, new_status, reason)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error adding reclassification history: {e}")
+
+def get_reclassification_history(domain=None, limit=50):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if domain:
+            cursor.execute('SELECT * FROM ReclassificationHistory WHERE domain = %s ORDER BY timestamp DESC LIMIT %s', (domain, limit))
+        else:
+            cursor.execute('SELECT * FROM ReclassificationHistory ORDER BY timestamp DESC LIMIT %s', (limit,))
+        history = cursor.fetchall()
+        conn.close()
+        return [dict(h) for h in history]
+    except Exception as e:
+        print(f"Error fetching reclassification history: {e}")
+        return []
+
+def add_notification(user_id, notif_type, message, domain):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO Notifications (user_id, type, message, domain) VALUES (%s, %s, %s, %s)',
+            (user_id, notif_type, message, domain)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error adding notification: {e}")
+
+def get_notifications(user_id, unread_only=False, limit=20):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if unread_only:
+            cursor.execute('SELECT * FROM Notifications WHERE user_id = %s AND is_read = FALSE ORDER BY timestamp DESC LIMIT %s', (user_id, limit))
+        else:
+            cursor.execute('SELECT * FROM Notifications WHERE user_id = %s ORDER BY timestamp DESC LIMIT %s', (user_id, limit))
+        notifs = cursor.fetchall()
+        conn.close()
+        return [dict(n) for n in notifs]
+    except Exception as e:
+        print(f"Error getting notifications: {e}")
+        return []
+
+def mark_notification_read(notification_id, user_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE Notifications SET is_read = TRUE WHERE id = %s AND user_id = %s', (notification_id, user_id))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error marking notification read: {e}")
         return False
 
 

@@ -1,21 +1,26 @@
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
 from functools import wraps
 from database import (
-    init_db, log_request, get_recent_logs, get_log_stats,
+    init_db, log_request, get_recent_logs, get_log_stats, get_global_analytics,
     verify_user, get_user_by_id, create_user, get_all_users, update_user, delete_user,
     update_last_login, reclassify_log,
     get_blacklist, get_whitelist, add_to_blacklist, remove_from_blacklist,
     add_to_whitelist, remove_from_whitelist,
-    create_reset_token, verify_reset_token, reset_password
+    create_reset_token, verify_reset_token, reset_password,
+    get_notifications, mark_notification_read, get_reclassification_history
 )
 from analyzer import analyze_url, extract_domain
 import json
+from scheduler import start_scheduler
 
 app = Flask(__name__)
 app.secret_key = 'dnsguard_super_secret_key_change_in_prod'
 
 # Initialize database on startup
 init_db()
+
+# Start background reclassification monitor
+start_scheduler()
 
 # ──────────────────────────────────────────────
 # Security Headers Middleware (Fixes scanned vulnerabilities)
@@ -215,19 +220,26 @@ def dashboard():
     role = session.get('role')
 
     # RBAC: Viewer sees only own logs
+    analytics = None
     if role == 'Viewer/User':
         logs = get_recent_logs(user_id=user_id)
         stats = get_log_stats(user_id=user_id)
     else:
         logs = get_recent_logs()
         stats = get_log_stats()
+        analytics = get_global_analytics()
+
+    # Fetch notifications for the user
+    notifications = get_notifications(user_id, unread_only=True)
 
     return render_template('dashboard.html',
         logs=logs,
         stats=stats,
+        analytics=analytics,
         role=role,
         username=session.get('username'),
-        full_name=session.get('full_name', session.get('username'))
+        full_name=session.get('full_name', session.get('username')),
+        notifications=notifications
     )
 
 # ──────────────────────────────────────────────
@@ -348,7 +360,7 @@ def analyst_reclassify(log_id):
     if new_status not in ('Safe', 'Suspicious', 'Malicious'):
         flash('Invalid status.', 'error')
         return redirect(url_for('dashboard'))
-    reclassify_log(log_id, new_status)
+    reclassify_log(log_id, new_status, session.get('username'))
     flash(f'Log #{log_id} reclassified as {new_status}.', 'success')
     return redirect(url_for('dashboard'))
 
@@ -387,6 +399,13 @@ def api_register():
         return jsonify({'success': True, 'user_id': result})
     else:
         return jsonify({'success': False, 'error': result}), 400
+
+@app.route('/api/notifications/<int:notif_id>/read', methods=['POST'])
+@login_required
+def read_notification(notif_id):
+    user_id = session.get('user_id')
+    success = mark_notification_read(notif_id, user_id)
+    return jsonify({'success': success})
 
 @app.route('/api/check_url', methods=['POST'])
 def check_url():
