@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
 from functools import wraps
 from database import (
-    init_db, log_request, get_recent_logs, get_log_stats,
+    init_db, log_request, get_recent_logs, get_log_stats, get_global_analytics,
     verify_user, get_user_by_id, create_user, get_all_users, update_user, delete_user,
     update_last_login, reclassify_log,
     get_blacklist, get_whitelist, add_to_blacklist, remove_from_blacklist,
@@ -215,16 +215,19 @@ def dashboard():
     role = session.get('role')
 
     # RBAC: Viewer sees only own logs
+    analytics = None
     if role == 'Viewer/User':
         logs = get_recent_logs(user_id=user_id)
         stats = get_log_stats(user_id=user_id)
     else:
         logs = get_recent_logs()
         stats = get_log_stats()
+        analytics = get_global_analytics()
 
     return render_template('dashboard.html',
         logs=logs,
         stats=stats,
+        analytics=analytics,
         role=role,
         username=session.get('username'),
         full_name=session.get('full_name', session.get('username'))
@@ -348,7 +351,7 @@ def analyst_reclassify(log_id):
     if new_status not in ('Safe', 'Suspicious', 'Malicious'):
         flash('Invalid status.', 'error')
         return redirect(url_for('dashboard'))
-    reclassify_log(log_id, new_status)
+    reclassify_log(log_id, new_status, session.get('username'))
     flash(f'Log #{log_id} reclassified as {new_status}.', 'success')
     return redirect(url_for('dashboard'))
 

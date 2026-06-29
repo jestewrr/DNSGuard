@@ -80,21 +80,21 @@ def check_pattern(domain):
 def check_dns(domain):
     """
     Checks if the domain has valid DNS records (A or AAAA).
-    Returns True if valid, False if it seems invalid/suspicious.
+    Returns the IP address if valid, None if it seems invalid/suspicious.
     """
     try:
         # Check A records
-        dns.resolver.resolve(domain, 'A')
-        return True
+        answers = dns.resolver.resolve(domain, 'A')
+        return answers[0].to_text()
     except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.Timeout, Exception):
         pass
         
     try:
         # Check AAAA records if A fails
-        dns.resolver.resolve(domain, 'AAAA')
-        return True
+        answers = dns.resolver.resolve(domain, 'AAAA')
+        return answers[0].to_text()
     except Exception:
-        return False
+        return None
 
 def check_domain_reputation(url):
     """
@@ -145,28 +145,28 @@ def analyze_url(url):
 
     # 1. Blacklist-Based Detection
     is_black = is_blacklisted(domain)
-    breakdown['blacklist'] = "Failed (Found in blacklist)" if is_black else "Passed"
+    breakdown['blacklist'] = "Failed (Found in blacklist database)" if is_black else "Passed (Domain not found in our database of known malicious threats.)"
 
     # 2. Pattern-Based Detection
     is_pattern = check_pattern(domain)
-    breakdown['pattern'] = "Failed (Suspicious patterns found)" if is_pattern else "Passed"
+    breakdown['pattern'] = "Failed (Suspicious patterns found in domain structure)" if is_pattern else "Passed (Domain structure is normal: no high entropy or suspicious keywords.)"
 
     # 3. Domain Reputation Analysis
     reputation = check_domain_reputation(url)
-    breakdown['reputation'] = reputation
+    breakdown['reputation'] = "Safe (Google Safe Browsing classifies this domain as clean.)" if reputation == "Safe" else reputation
 
     # 4. & 5. Real-Time Threat Detection (DNS resolution checks)
-    is_dns_valid = check_dns(domain)
-    breakdown['dns'] = "Passed (Valid IP)" if is_dns_valid else "Failed (No resolution)"
+    dns_ip = check_dns(domain)
+    breakdown['dns'] = f"Passed (Domain resolved to IP: {dns_ip})" if dns_ip else "Failed (No valid DNS resolution)"
     
     # 6. Pop-Up / Ad Detection
     is_ad = check_ad_network(domain)
-    breakdown['ad_detection'] = "Failed (Known Ad/Popup Network)" if is_ad else "Passed"
+    breakdown['ad_detection'] = "Failed (Matches known advertising or popup networks)" if is_ad else "Passed (Domain does not match known ad or popup networks.)"
 
     # Final Status Logic
     if is_black:
         status = "Malicious"
-    elif is_pattern or not is_dns_valid:
+    elif is_pattern or not dns_ip:
         status = "Suspicious"
     elif is_ad:
         status = "Suspicious" # We can flag ad networks as Suspicious
