@@ -18,6 +18,44 @@ app.secret_key = 'dnsguard_super_secret_key_change_in_prod'
 init_db()
 
 # ──────────────────────────────────────────────
+# Security Headers Middleware (Fixes scanned vulnerabilities)
+# ──────────────────────────────────────────────
+@app.after_request
+def add_security_headers(response):
+    # Prevent Clickjacking (X-Frame-Options)
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    
+    # Prevent MIME Sniffing (X-Content-Type-Options)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    
+    # Enforce HTTPS (Strict-Transport-Security)
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
+    
+    # Content Security Policy (Allows our CDNs for Tailwind, Bootstrap, Google Fonts, and Chart.js)
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self';"
+    )
+    
+    # Cross-Site Scripting Protection (X-XSS-Protection) - Legacy protection
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    
+    # Referrer Policy (Referrer-Policy)
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    
+    # Permissions Policy (Permissions-Policy) - Restrict device access
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    
+    # Hide Web Server Info (Server Version Disclosure)
+    response.headers['Server'] = 'SecureDNS-Shield'
+    
+    return response
+
+# ──────────────────────────────────────────────
 # Decorators
 # ──────────────────────────────────────────────
 
