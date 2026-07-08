@@ -100,7 +100,7 @@ def analyst_required(f):
 # Auth Routes
 # ──────────────────────────────────────────────
 
-RECAPTCHA_SECRET_KEY = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'
+RECAPTCHA_SECRET_KEY = '6LdIzUktAAAAACpxQ_Yh6i7Rye0RQAQ4bGiZAaYg'
 
 def verify_recaptcha(response_token):
     if not response_token:
