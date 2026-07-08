@@ -221,7 +221,7 @@ def analyze_url(url):
             del ANALYSIS_CACHE[domain]
 
     # Check Whitelist (respect database-level rules and local default whitelist)
-    whitelist = ['localhost', '127.0.0.1', 'dnsguard.onrender.com']
+    whitelist = ['localhost', '127.0.0.1', 'dnsguard.onrender.com', 'dnsguard-backend.onrender.com']
     if domain in whitelist or domain.endswith('.localhost') or is_whitelisted(domain):
         breakdown['summary'] = {
             "url": url,
