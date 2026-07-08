@@ -71,59 +71,55 @@ chrome.webRequest.onBeforeRequest.addListener(
 async function checkUrlStatus(url, tabId) {
     try {
         const domain = extractDomain(url);
-        // Retrieve user_id from local storage if they are logged in
-        chrome.storage.local.get(['user_id'], async function(result) {
-            const userId = result.user_id || null;
 
-            const response = await fetch(BACKEND_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ url: url, user_id: userId })
-            });
+        const response = await fetch(BACKEND_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url: url, user_id: null })
+        });
+    
+        const data = await response.json();
         
-            const data = await response.json();
-            
-            // Determine reason from breakdown
-            let reason = "Classified as unsafe by threat engine.";
-            if (data.breakdown) {
-                for (const check of Object.values(data.breakdown)) {
-                    if (check.status === 'Failed' && check.message) {
-                        reason = check.message;
-                        break;
-                    }
+        // Determine reason from breakdown
+        let reason = "Classified as unsafe by threat engine.";
+        if (data.breakdown) {
+            for (const check of Object.values(data.breakdown)) {
+                if (check.status === 'Failed' && check.message) {
+                    reason = check.message;
+                    break;
                 }
             }
+        }
 
-            // Cache the result for 5 minutes (300,000 ms)
-            if (domain) {
-                domainCache.set(domain, {
-                    status: data.status,
-                    reason: reason,
-                    expireTime: Date.now() + 5 * 60 * 1000
-                });
-            }
+        // Cache the result for 5 minutes (300,000 ms)
+        if (domain) {
+            domainCache.set(domain, {
+                status: data.status,
+                reason: reason,
+                expireTime: Date.now() + 5 * 60 * 1000
+            });
+        }
 
-            if (data.status === 'Malicious' || data.status === 'Suspicious') {
-                // Trigger browser warning notification
-                chrome.notifications.create({
-                    type: 'basic',
-                    iconUrl: 'imagelogo.png',
-                    title: `DNSGuard Alert: ${data.status} Website!`,
-                    message: `Access to ${url} was blocked for your safety.`,
-                    priority: 2
-                }, function(notificationId) {
-                    if (chrome.runtime.lastError) {
-                        console.log("Notification error (e.g. missing icon):", chrome.runtime.lastError);
-                    }
-                });
+        if (data.status === 'Malicious' || data.status === 'Suspicious') {
+            // Trigger browser warning notification
+            chrome.notifications.create({
+                type: 'basic',
+                iconUrl: 'imagelogo.png',
+                title: `DNSGuard Alert: ${data.status} Website!`,
+                message: `Access to ${url} was blocked for your safety.`,
+                priority: 2
+            }, function(notificationId) {
+                if (chrome.runtime.lastError) {
+                    console.log("Notification error (e.g. missing icon):", chrome.runtime.lastError);
+                }
+            });
 
-                // Redirect the tab to our block page
-                const blockUrl = chrome.runtime.getURL(`block.html?url=${encodeURIComponent(url)}&status=${data.status}&reason=${encodeURIComponent(reason)}`);
-                chrome.tabs.update(tabId, { url: blockUrl });
-            }
-        }); // end storage get
+            // Redirect the tab to our block page
+            const blockUrl = chrome.runtime.getURL(`block.html?url=${encodeURIComponent(url)}&status=${data.status}&reason=${encodeURIComponent(reason)}`);
+            chrome.tabs.update(tabId, { url: blockUrl });
+        }
     } catch (error) {
         console.error("DNSGuard API Error:", error);
     }

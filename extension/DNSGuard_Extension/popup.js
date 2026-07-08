@@ -1,69 +1,13 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Check login status first
-    chrome.storage.local.get(['user_id', 'username'], function(result) {
-        if (result.user_id) {
-            showStatusSection(result.username);
-            checkCurrentTab(result.user_id);
-        } else {
-            showLoginSection();
-        }
-    });
-
-    document.getElementById('login-btn').addEventListener('click', handleLogin);
-    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    checkCurrentTab();
 });
 
-function handleLogin() {
-    const user = document.getElementById('username').value;
-    const pass = document.getElementById('password').value;
-    const errEl = document.getElementById('login-error');
-    
-    fetch("https://dnsguard-backend.onrender.com/api/login", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user, password: pass })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            chrome.storage.local.set({ user_id: data.user_id, username: data.username }, function() {
-                errEl.style.display = 'none';
-                showStatusSection(data.username);
-                checkCurrentTab(data.user_id);
-            });
-        } else {
-            errEl.innerText = data.error || "Login failed";
-            errEl.style.display = 'block';
-        }
-    }).catch(e => {
-        errEl.innerText = "Error connecting to server";
-        errEl.style.display = 'block';
-    });
-}
-
-function handleLogout() {
-    chrome.storage.local.remove(['user_id', 'username'], function() {
-        showLoginSection();
-    });
-}
-
-function showLoginSection() {
-    document.getElementById('login-section').style.display = 'block';
-    document.getElementById('status-section').style.display = 'none';
-}
-
-function showStatusSection(username) {
-    document.getElementById('login-section').style.display = 'none';
-    document.getElementById('status-section').style.display = 'block';
-    document.getElementById('display-user').innerText = username;
-    document.getElementById('user-info').style.display = 'block';
-}
-
-function checkCurrentTab(userId) {
+function checkCurrentTab() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        if (!tabs || !tabs[0]) return;
         let currentUrl = tabs[0].url;
         
-        if (currentUrl.startsWith("chrome://") || currentUrl.startsWith("chrome-extension://")) {
+        if (!currentUrl || currentUrl.startsWith("chrome://") || currentUrl.startsWith("chrome-extension://") || currentUrl.startsWith("file://") || currentUrl.startsWith("about:")) {
             updateStatus("N/A", "unknown");
             return;
         }
@@ -71,7 +15,7 @@ function checkCurrentTab(userId) {
         fetch("https://dnsguard-backend.onrender.com/api/check_url", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: currentUrl, user_id: userId })
+            body: JSON.stringify({ url: currentUrl, user_id: null })
         })
         .then(response => response.json())
         .then(data => {
@@ -91,6 +35,8 @@ function checkCurrentTab(userId) {
 
 function updateStatus(text, className) {
     const el = document.getElementById('site-status');
-    el.innerText = text;
-    el.className = className;
+    if (el) {
+        el.innerText = text;
+        el.className = className;
+    }
 }
