@@ -102,16 +102,18 @@
                         </button>
                     </div>
                 </div>
-                <!-- reCAPTCHA Widget (Test Key) -->
-                <div class="mb-5 flex justify-center">
-                    <div class="g-recaptcha" data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"></div>
-                </div>
                 <div class="flex items-center justify-between mb-6">
                     <label class="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
                         <input type="checkbox" name="remember" class="w-4 h-4 rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-cyan-500">
                         Remember me
                     </label>
                     <a href="/forgot-password" class="text-sm text-cyan-400 hover:text-cyan-300 transition">Forgot password?</a>
+                </div>
+                <!-- reCAPTCHA Widget -->
+                <div class="mb-5">
+                    <div class="flex justify-center">
+                        <div class="g-recaptcha" data-sitekey="6LdIzUktAAAAAIq-LiZnoIvfuHxNnVyox1mP2Ftl" data-theme="dark"></div>
+                    </div>
                 </div>
                 <button type="submit" id="submitBtn"
                     class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold hover:from-cyan-400 hover:to-blue-500 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">

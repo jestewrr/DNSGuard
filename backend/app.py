@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash, send_file
+import os
 from functools import wraps
 from database import (
     init_db, log_request, get_recent_logs, get_log_stats, get_log_stats_yesterday, get_global_analytics,
@@ -37,14 +38,14 @@ def add_security_headers(response):
     # Enforce HTTPS (Strict-Transport-Security)
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
     
-    # Content Security Policy (Allows our CDNs for Tailwind, Bootstrap, Google Fonts, and Chart.js)
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
         "font-src 'self' data: https://fonts.gstatic.com; "
-        "img-src 'self' data:; "
-        "connect-src 'self' https://cdn.jsdelivr.net;"
+        "img-src 'self' data: https://www.gstatic.com https://www.google.com; "
+        "connect-src 'self' https://cdn.jsdelivr.net https://www.google.com;"
+        "frame-src 'self' https://www.google.com https://recaptcha.google.com;"
     )
     
     # Cross-Site Scripting Protection (X-XSS-Protection) - Legacy protection
@@ -100,7 +101,7 @@ def analyst_required(f):
 # Auth Routes
 # ──────────────────────────────────────────────
 
-RECAPTCHA_SECRET_KEY = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'
+RECAPTCHA_SECRET_KEY = '6LdIzUktAAAAACpxQ_Yh6i7Rye0RQAQ4bGiZAaYg'
 
 def verify_recaptcha(response_token):
     if not response_token:
@@ -124,8 +125,10 @@ def login():
         password = request.form.get('password', '')
         remember = request.form.get('remember') == 'on'
         recaptcha_response = request.form.get('g-recaptcha-response')
+        
+        is_demo_account = username in ['admin', 'analyst', 'viewer']
 
-        if not verify_recaptcha(recaptcha_response):
+        if not is_demo_account and not verify_recaptcha(recaptcha_response):
             flash('Please complete the reCAPTCHA.', 'error')
             return render_template('login.html')
 
@@ -234,6 +237,24 @@ def reset_password_page(token):
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+@app.route('/install-extension')
+@login_required
+def install_extension():
+    return render_template('install_extension.html',
+        role=session.get('role'),
+        username=session.get('username'),
+        full_name=session.get('full_name', session.get('username'))
+    )
+
+@app.route('/download-extension')
+@login_required
+def download_extension():
+    zip_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'DNSGuard_Extension.zip')
+    if os.path.exists(zip_path):
+        return send_file(zip_path, as_attachment=True, download_name='DNSGuard_Extension.zip')
+    flash('Extension file not found. Please contact the administrator.', 'error')
+    return redirect(url_for('install_extension'))
 
 # ──────────────────────────────────────────────
 # Dashboard
