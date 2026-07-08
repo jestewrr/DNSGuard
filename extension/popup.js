@@ -1,6 +1,23 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Check and update UI based on current storage state
-    updateUIFromStorage();
+    // Auto-detect backend from active tab url to switch context (local vs prod)
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        if (tabs && tabs[0] && tabs[0].url) {
+            const tabUrl = tabs[0].url;
+            if (tabUrl.includes("localhost:5000") || tabUrl.includes("127.0.0.1:5000")) {
+                chrome.storage.local.set({ backend_url: "http://127.0.0.1:5000" }, () => {
+                    updateUIFromStorage();
+                });
+            } else if (tabUrl.includes("dnsguard-backend.onrender.com")) {
+                chrome.storage.local.set({ backend_url: "https://dnsguard-backend.onrender.com" }, () => {
+                    updateUIFromStorage();
+                });
+            } else {
+                updateUIFromStorage();
+            }
+        } else {
+            updateUIFromStorage();
+        }
+    });
 
     // Listen for storage changes to dynamically sync the UI when website state changes
     chrome.storage.onChanged.addListener(function(changes, namespace) {

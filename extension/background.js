@@ -31,8 +31,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 console.log("[DNSGuard Background] Stored authenticated state for user:", message.username);
             });
         } else {
-            chrome.storage.local.remove(['user_id', 'username', 'role'], () => {
-                console.log("[DNSGuard Background] Cleared authenticated state.");
+            chrome.storage.local.get(['backend_url'], function(result) {
+                // Only clear credentials if the logout message belongs to the active backend URL
+                if (!result.backend_url || result.backend_url === message.backend_url) {
+                    chrome.storage.local.remove(['user_id', 'username', 'role'], () => {
+                        console.log("[DNSGuard Background] Cleared authenticated state.");
+                    });
+                } else {
+                    console.log("[DNSGuard Background] Ignored unauthenticated message from non-active backend:", message.backend_url);
+                }
             });
         }
     }
