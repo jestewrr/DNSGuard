@@ -149,26 +149,16 @@
                 icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>';
             }
         }
-        async function sha256(message) {
-            const msgBuffer = new TextEncoder().encode(message);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        }
 
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault(); // Stop normal submission
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            // Show loading spinner — passwords are sent as plain text over HTTPS
+            // and are verified securely on the server side using werkzeug
             document.getElementById('btnText').textContent = 'Signing in...';
             document.getElementById('btnSpinner').classList.remove('hidden');
             document.getElementById('submitBtn').disabled = true;
-            
-            // Hash the password before sending
-            const pwInput = document.getElementById('passwordInput');
-            pwInput.value = await sha256(pwInput.value);
-            
-            // Submit form natively
-            this.submit();
+            // Let the form submit normally (no client-side hashing)
         });
     </script>
+
 </body>
 </html>
