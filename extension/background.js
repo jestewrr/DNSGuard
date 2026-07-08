@@ -57,8 +57,8 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     const url = details.url;
     
-    // Ignore chrome internal URLs and the extension's own pages
-    if (url.startsWith("chrome://") || url.startsWith("chrome-extension://")) {
+    // Ignore local files, internal URLs, about: blank pages, and the extension's own pages
+    if (url.startsWith("chrome://") || url.startsWith("chrome-extension://") || url.startsWith("file://") || url.startsWith("about:")) {
       return { cancel: false };
     }
 

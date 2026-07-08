@@ -9,6 +9,9 @@ from datetime import datetime
 
 def extract_domain(url):
     try:
+        url_lower = url.lower()
+        if url_lower.startswith('file://') or url_lower.startswith('chrome://') or url_lower.startswith('chrome-extension://') or url_lower.startswith('about:'):
+            return ""
         if not url.startswith('http://') and not url.startswith('https://'):
             url = 'http://' + url
         parsed_url = urlparse(url)
@@ -142,7 +145,14 @@ def check_ad_network(domain):
     """
     Checks if the domain belongs to known popup or ad networks.
     """
-    ad_networks = ['doubleclick.net', 'popads.net', 'propellerads.com', 'adtech.de', 'advertising.com', 'admob.com']
+    ad_networks = [
+        'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 
+        'popads.net', 'propellerads.com', 'adtech.de', 'advertising.com', 
+        'admob.com', 'adnxs.com', 'pubmatic.com', 'rubiconproject.com', 
+        'openx.net', 'casalemedia.com', 'outbrain.com', 'taboola.com',
+        'adcolony.com', 'unityads.unity3d.com', 'applovin.com', 'ironsrc.com',
+        'criteo.com', 'adroll.com', 'quantserve.com', 'scorecardresearch.com'
+    ]
     return any(ad in domain for ad in ad_networks)
 
 def analyze_url(url):
