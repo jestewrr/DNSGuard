@@ -37,14 +37,14 @@ def add_security_headers(response):
     # Enforce HTTPS (Strict-Transport-Security)
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
     
-    # Content Security Policy (Allows our CDNs for Tailwind, Bootstrap, Google Fonts, and Chart.js)
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
         "font-src 'self' data: https://fonts.gstatic.com; "
-        "img-src 'self' data:; "
-        "connect-src 'self' https://cdn.jsdelivr.net;"
+        "img-src 'self' data: https://www.gstatic.com/recaptcha/; "
+        "connect-src 'self' https://cdn.jsdelivr.net https://www.google.com/recaptcha/;"
+        "frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/;"
     )
     
     # Cross-Site Scripting Protection (X-XSS-Protection) - Legacy protection
