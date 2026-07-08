@@ -1,16 +1,65 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-detect backend from active tab url to switch context (local vs prod)
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+// ──────────────────────────────────────────────
+// Utilities
+// ──────────────────────────────────────────────
+
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function showError(message, type = 'error-credentials') {
+    const el = document.getElementById('login-error');
+    el.textContent = message;
+    el.className = type;
+    el.style.display = 'block';
+}
+
+function clearError() {
+    const el = document.getElementById('login-error');
+    el.style.display = 'none';
+    el.textContent = '';
+}
+
+function setLoginLoading(loading) {
+    const btn = document.getElementById('login-btn');
+    const spinner = document.getElementById('login-spinner');
+    const btnText = document.getElementById('login-btn-text');
+    btn.disabled = loading;
+    spinner.style.display = loading ? 'block' : 'none';
+    btnText.textContent = loading ? 'Signing in…' : 'Sign In';
+}
+
+// ──────────────────────────────────────────────
+// Init
+// ──────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Password show/hide toggle
+    document.getElementById('pw-toggle-btn').addEventListener('click', function () {
+        const pwInput = document.getElementById('password');
+        const eyeShow = document.getElementById('eye-show');
+        const eyeHide = document.getElementById('eye-hide');
+        if (pwInput.type === 'password') {
+            pwInput.type = 'text';
+            eyeShow.style.display = 'none';
+            eyeHide.style.display = 'block';
+        } else {
+            pwInput.type = 'password';
+            eyeShow.style.display = 'block';
+            eyeHide.style.display = 'none';
+        }
+    });
+
+    // Auto-detect backend from active tab URL
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         if (tabs && tabs[0] && tabs[0].url) {
             const tabUrl = tabs[0].url;
-            if (tabUrl.includes("localhost:5000") || tabUrl.includes("127.0.0.1:5000")) {
-                chrome.storage.local.set({ backend_url: "http://127.0.0.1:5000" }, () => {
-                    updateUIFromStorage();
-                });
-            } else if (tabUrl.includes("dnsguard-backend.onrender.com")) {
-                chrome.storage.local.set({ backend_url: "https://dnsguard-backend.onrender.com" }, () => {
-                    updateUIFromStorage();
-                });
+            if (tabUrl.includes('localhost:5000') || tabUrl.includes('127.0.0.1:5000')) {
+                chrome.storage.local.set({ backend_url: 'http://127.0.0.1:5000' }, updateUIFromStorage);
+            } else if (tabUrl.includes('dnsguard-backend.onrender.com')) {
+                chrome.storage.local.set({ backend_url: 'https://dnsguard-backend.onrender.com' }, updateUIFromStorage);
             } else {
                 updateUIFromStorage();
             }
@@ -19,8 +68,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Listen for storage changes to dynamically sync the UI when website state changes
-    chrome.storage.onChanged.addListener(function(changes, namespace) {
+    // React to storage changes (triggered by content.js sync_session)
+    chrome.storage.onChanged.addListener(function (changes) {
         if (changes.user_id || changes.username) {
             updateUIFromStorage();
         }
@@ -30,31 +79,30 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
 });
 
+// ──────────────────────────────────────────────
+// Session state
+// ──────────────────────────────────────────────
+
 function updateUIFromStorage() {
-    chrome.storage.local.get(['user_id', 'username', 'backend_url'], function(result) {
+    chrome.storage.local.get(['user_id', 'username', 'backend_url'], function (result) {
         const userId = result.user_id;
         const username = result.username;
-        const currentBackend = result.backend_url || "https://dnsguard-backend.onrender.com";
+        const currentBackend = result.backend_url || 'https://dnsguard-backend.onrender.com';
 
         if (userId) {
-            // Verify if the session is still active on the server
-            // credentials: 'include' sends HttpOnly session cookies automatically
-            fetch(`${currentBackend}/api/session_status`, {
-                credentials: 'include'
-            })
+            // Verify the session is still active — cookies sent automatically with credentials:'include'
+            fetch(`${currentBackend}/api/session_status`, { credentials: 'include' })
                 .then(r => r.json())
                 .then(data => {
                     if (data.authenticated) {
-                        showStatusSection(username);
-                        checkCurrentTab(userId, currentBackend);
+                        showStatusSection(data.username || username);
+                        checkCurrentTab(data.user_id || data.id || userId, currentBackend);
                     } else {
-                        console.log("[DNSGuard Popup] Session invalid on server. Logging out.");
                         forceLocalLogout();
                     }
                 })
-                .catch(e => {
-                    console.error("[DNSGuard Popup] Error checking session status:", e);
-                    // On network error, show the cached user status so they aren't forced out offline
+                .catch(() => {
+                    // Network error — show cached state so offline users aren't kicked out
                     showStatusSection(username);
                     checkCurrentTab(userId, currentBackend);
                 });
@@ -64,116 +112,142 @@ function updateUIFromStorage() {
     });
 }
 
-function handleLogin() {
+// ──────────────────────────────────────────────
+// Login
+// ──────────────────────────────────────────────
+
+async function handleLogin() {
     const user = document.getElementById('username').value.trim();
     const pass = document.getElementById('password').value;
-    const errEl = document.getElementById('login-error');
-    
+    clearError();
+
     if (!user || !pass) {
-        errEl.innerText = "Please fill in all fields.";
-        errEl.style.display = 'block';
+        showError('Please fill in all fields.', 'error-credentials');
         return;
     }
 
-    chrome.storage.local.get(['backend_url'], function(result) {
-        const currentBackend = result.backend_url || "https://dnsguard-backend.onrender.com";
-        
-        // credentials: 'include' ensures the HttpOnly auth cookie is stored by the browser
-        fetch(`${currentBackend}/api/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ username: user, password: pass })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                // Store only non-sensitive identifiers — never the token itself
-                chrome.storage.local.set({ 
-                    user_id: data.id, 
-                    username: data.username, 
+    setLoginLoading(true);
+
+    chrome.storage.local.get(['backend_url'], async function (result) {
+        const currentBackend = result.backend_url || 'https://dnsguard-backend.onrender.com';
+
+        try {
+            // SHA-256 hash the password before sending — matches the web login form behaviour.
+            // The backend stores werkzeug_hash(sha256(rawpassword)) and verifies the same way.
+            const hashedPassword = await sha256(pass);
+
+            const response = await fetch(`${currentBackend}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',  // stores the HttpOnly dnsguard_token cookie
+                body: JSON.stringify({ username: user, password: hashedPassword })
+            });
+
+            let data;
+            try {
+                data = await response.json();
+            } catch {
+                setLoginLoading(false);
+                showError('Server returned an unexpected response.', 'error-server');
+                return;
+            }
+
+            setLoginLoading(false);
+
+            if (response.ok && data.success) {
+                // Store only non-sensitive identifiers
+                chrome.storage.local.set({
+                    user_id: data.user_id || data.id,
+                    username: data.username,
                     role: data.role,
                     backend_url: currentBackend
-                }, function() {
-                    errEl.style.display = 'none';
+                }, function () {
+                    clearError();
                     showStatusSection(data.username);
-                    checkCurrentTab(data.id, currentBackend);
+                    checkCurrentTab(data.user_id || data.id, currentBackend);
                 });
+            } else if (response.status === 401) {
+                showError('Invalid username or password.', 'error-credentials');
+            } else if (response.status >= 500) {
+                showError('Server error. Please try again later.', 'error-server');
             } else {
-                errEl.innerText = data.error || "Login failed";
-                errEl.style.display = 'block';
+                showError(data.error || 'Login failed. Please try again.', 'error-credentials');
             }
-        }).catch(e => {
-            errEl.innerText = "Error connecting to server";
-            errEl.style.display = 'block';
-        });
+        } catch (e) {
+            setLoginLoading(false);
+            if (e instanceof TypeError && e.message.includes('fetch')) {
+                showError('Cannot reach server. Check your connection.', 'error-network');
+            } else {
+                showError('An unexpected error occurred.', 'error-server');
+            }
+        }
     });
 }
 
+// ──────────────────────────────────────────────
+// Logout
+// ──────────────────────────────────────────────
+
 function handleLogout() {
-    chrome.storage.local.get(['backend_url'], function(result) {
-        const currentBackend = result.backend_url || "https://dnsguard-backend.onrender.com";
-        // Notify backend to clear session; credentials: 'include' sends the session cookie
+    chrome.storage.local.get(['backend_url'], function (result) {
+        const currentBackend = result.backend_url || 'https://dnsguard-backend.onrender.com';
         fetch(`${currentBackend}/api/logout`, {
             method: 'POST',
             credentials: 'include'
         }).finally(() => {
-            chrome.storage.local.remove(['user_id', 'username', 'role'], function() {
-                showLoginSection();
-            });
+            chrome.storage.local.remove(['user_id', 'username', 'role'], showLoginSection);
         });
     });
 }
 
 function forceLocalLogout() {
-    chrome.storage.local.remove(['user_id', 'username', 'role'], function() {
-        showLoginSection();
-    });
+    chrome.storage.local.remove(['user_id', 'username', 'role'], showLoginSection);
 }
+
+// ──────────────────────────────────────────────
+// UI Sections
+// ──────────────────────────────────────────────
 
 function showLoginSection() {
     document.getElementById('login-section').style.display = 'block';
     document.getElementById('status-section').style.display = 'none';
-    document.getElementById('login-error').style.display = 'none';
+    clearError();
+    setLoginLoading(false);
 }
 
 function showStatusSection(username) {
     document.getElementById('login-section').style.display = 'none';
     document.getElementById('status-section').style.display = 'block';
-    document.getElementById('display-user').innerText = username;
+    document.getElementById('display-user').innerText = username || '';
     document.getElementById('user-info').style.display = 'block';
 }
 
+// ──────────────────────────────────────────────
+// URL Check
+// ──────────────────────────────────────────────
+
 function checkCurrentTab(userId, currentBackend) {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         if (!tabs || tabs.length === 0) return;
-        let currentUrl = tabs[0].url;
-        
-        if (!currentUrl || currentUrl.startsWith("chrome://") || currentUrl.startsWith("chrome-extension://")) {
-            updateStatus("N/A", "unknown");
+        const currentUrl = tabs[0].url;
+
+        if (!currentUrl || currentUrl.startsWith('chrome://') || currentUrl.startsWith('chrome-extension://')) {
+            updateStatus('N/A', 'unknown');
             return;
         }
 
-        // credentials: 'include' automatically sends the HttpOnly auth cookie
         fetch(`${currentBackend}/api/check_url`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({ url: currentUrl, user_id: userId })
         })
-        .then(response => response.json())
-        .then(data => {
-            let colorClass = "unknown";
-            if (data.status === "Safe") colorClass = "safe";
-            else if (data.status === "Suspicious") colorClass = "suspicious";
-            else if (data.status === "Malicious") colorClass = "malicious";
-            
-            updateStatus(data.status, colorClass);
-        })
-        .catch(err => {
-            console.error("Error connecting to backend", err);
-            updateStatus("Offline", "unknown");
-        });
+            .then(r => r.json())
+            .then(data => {
+                const colorMap = { Safe: 'safe', Suspicious: 'suspicious', Malicious: 'malicious' };
+                updateStatus(data.status || 'Unknown', colorMap[data.status] || 'unknown');
+            })
+            .catch(() => updateStatus('Offline', 'unknown'));
     });
 }
 

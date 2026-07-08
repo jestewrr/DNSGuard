@@ -69,6 +69,7 @@ def _safe_user_dict(user):
     """Return only the minimum safe fields needed by the client. Never expose password_hash."""
     return {
         'id': user['id'],
+        'user_id': user['id'],   # alias used by extension content.js
         'username': user['username'],
         'role': user['role'],
         'full_name': user.get('full_name', user['username']),
@@ -92,15 +93,18 @@ start_scheduler()
 # ──────────────────────────────────────────────
 @app.after_request
 def add_security_headers(response):
-    # Prevent Clickjacking (X-Frame-Options)
+    # Allow chrome-extension origins to use credentials (for session sync)
+    origin = request.headers.get('Origin', '')
+    if origin.startswith('chrome-extension://'):
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+
+    # Prevent Clickjacking
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    
-    # Prevent MIME Sniffing (X-Content-Type-Options)
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    
-    # Enforce HTTPS (Strict-Transport-Security)
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
-    
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com; "
@@ -110,19 +114,10 @@ def add_security_headers(response):
         "connect-src 'self' https://cdn.jsdelivr.net https://www.google.com;"
         "frame-src 'self' https://www.google.com https://recaptcha.google.com;"
     )
-    
-    # Cross-Site Scripting Protection (X-XSS-Protection) - Legacy protection
     response.headers['X-XSS-Protection'] = '1; mode=block'
-    
-    # Referrer Policy (Referrer-Policy)
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    
-    # Permissions Policy (Permissions-Policy) - Restrict device access
     response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
-    
-    # Hide Web Server Info (Server Version Disclosure)
     response.headers['Server'] = 'SecureDNS-Shield'
-    
     return response
 
 # ──────────────────────────────────────────────
@@ -201,11 +196,22 @@ def login():
 
         user = verify_user(username, password)
         if user:
-            _store_session_for_user(user)
+            auth_token = _store_session_for_user(user)
             if remember:
                 session.permanent = True
             update_last_login(user['id'])
-            return redirect(url_for('dashboard'))
+            resp = redirect(url_for('dashboard'))
+            # Also set the dnsguard_token HttpOnly cookie so the browser extension
+            # can detect the active web session via /api/session_status
+            resp.set_cookie(
+                AUTH_COOKIE_NAME,
+                auth_token,
+                httponly=True,
+                secure=app.config.get('SESSION_COOKIE_SECURE', False),
+                samesite=app.config.get('SESSION_COOKIE_SAMESITE', 'Lax'),
+                max_age=AUTH_TOKEN_MAX_AGE
+            )
+            return resp
         else:
             flash('Invalid username or password.', 'error')
 

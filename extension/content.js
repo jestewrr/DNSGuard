@@ -12,13 +12,12 @@
             chrome.runtime.sendMessage({
                 action: "sync_session",
                 authenticated: !!data.authenticated,
-                user_id: data.user_id || null,
+                user_id: data.user_id || data.id || null,
                 username: data.username || null,
                 role: data.role || null,
-                auth_token: data.auth_token || null,
                 backend_url: origin
             });
-            console.log("[DNSGuard Content Script] Session status synced:", data);
+            console.log("[DNSGuard Content Script] Session status synced:", data.authenticated ? `user=${data.username}` : 'unauthenticated');
         } catch (e) {
             console.error("[DNSGuard Content Script] Error checking session status:", e);
         }
