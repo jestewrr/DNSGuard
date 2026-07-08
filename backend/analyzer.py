@@ -1,7 +1,7 @@
 import re
 from urllib.parse import urlparse
 import dns.resolver
-from database import is_blacklisted
+from database import is_blacklisted, is_whitelisted
 import math
 from collections import Counter
 import requests
@@ -13,6 +13,9 @@ def extract_domain(url):
             url = 'http://' + url
         parsed_url = urlparse(url)
         domain = parsed_url.netloc
+        # Strip port number if present
+        if ':' in domain:
+            domain = domain.split(':')[0]
         if domain.startswith('www.'):
             domain = domain[4:]
         return domain
@@ -21,12 +24,26 @@ def extract_domain(url):
 
 def calculate_entropy(string):
     """Calculates the Shannon entropy of a string."""
+    if not string:
+        return 0.0
     p, lns = Counter(string), float(len(string))
     return -sum(count/lns * math.log(count/lns, 2) for count in p.values())
 
+def is_document_download(url):
+    """
+    Checks if the URL path ends with a common safe document or archive file extension.
+    """
+    try:
+        parsed = urlparse(url)
+        path = parsed.path.lower()
+        doc_extensions = ('.pdf', '.docx', '.xlsx', '.pptx', '.zip', '.rar', '.txt', '.csv', '.png', '.jpg', '.jpeg', '.gif', '.json')
+        return path.endswith(doc_extensions)
+    except Exception:
+        return False
+
 def check_pattern(domain):
     """
-    Checks if the domain matches suspicious patterns.
+    Checks if the domain matches suspicious patterns using a multi-factor score system.
     Returns a dictionary of details.
     """
     details = {
@@ -39,60 +56,60 @@ def check_pattern(domain):
         "entropy_score": 0.0
     }
     
-    # Suspicious pattern 1: IP address instead of domain
+    score = 0.0
+    parts = domain.split('.')
+    
+    # Indicator 1: IP address instead of domain
     ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
     if ip_pattern.match(domain):
-        details["is_suspicious"] = True
         details["ip_pattern"] = True
+        score += 3.0
 
-    # Suspicious pattern 2: Too many hyphens
+    # Indicator 2: Too many hyphens
     if domain.count('-') > 3:
-        details["is_suspicious"] = True
         details["excessive_hyphens"] = True
+        score += 1.0
         
-    # Suspicious pattern 3: Excessive subdomains (e.g., a.b.c.d.example.com)
-    parts = domain.split('.')
+    # Indicator 3: Excessive subdomains (e.g., a.b.c.d.example.com)
     if len(parts) > 4:
-        details["is_suspicious"] = True
         details["excessive_subdomains"] = True
+        score += 1.0
         
-    # Suspicious pattern 4: Known phishing keywords
+    # Indicator 4: Phishing keywords in non-standard/suspicious contexts
     phishing_keywords = ['login', 'secure', 'account', 'update', 'verify', 'banking', 'confirm', 'wallet', 'support', 'auth']
     if any(keyword in domain for keyword in phishing_keywords):
-        # Additional risk if a phishing keyword is used in a non-standard TLD or deeply nested subdomain
         if len(parts) > 3 or parts[-1] not in ['com', 'org', 'net']:
-            details["is_suspicious"] = True
             details["suspicious_keywords"] = True
+            score += 2.0
             
-    # Suspicious pattern 5: Long or high-entropy subdomains
+    # Indicator 5: Entropy and length of labels
+    max_ent = 0.0
     if len(parts) > 2:
-        subdomains = parts[:-2] # Get everything before registered_domain.tld
-        for sub in subdomains:
-            if len(sub) > 15:
-                details["is_suspicious"] = True
-            ent = calculate_entropy(sub)
-            details["entropy_score"] = max(details["entropy_score"], ent)
-            if len(sub) > 8 and ent > 3.8:
-                details["is_suspicious"] = True
-                details["high_entropy"] = True
-    elif len(parts) == 2:
-        # Check primary domain part
-        main_domain = parts[0]
-        if len(main_domain) > 15:
-            details["is_suspicious"] = True
-        ent = calculate_entropy(main_domain)
-        details["entropy_score"] = max(details["entropy_score"], ent)
-        if len(main_domain) > 10 and ent > 4.0:
-            details["is_suspicious"] = True
-            details["high_entropy"] = True
-
-    # Suspicious pattern 6: Ad/Popup related keywords in subdomains
-    if len(parts) > 2:
-        ad_popup_keywords = ['pop', 'ad', 'click', 'track', 'affiliate', 'serve', 'banner', 'redir']
         subdomains = parts[:-2]
         for sub in subdomains:
-            if any(keyword == sub or sub.startswith(keyword + '-') or sub.endswith('-' + keyword) for keyword in ad_popup_keywords):
-                details["is_suspicious"] = True
+            ent = calculate_entropy(sub)
+            max_ent = max(max_ent, ent)
+            # Long and high entropy subdomains
+            if len(sub) > 15 and ent > 4.2:
+                details["high_entropy"] = True
+                score += 1.5
+            elif len(sub) > 8 and ent > 3.8:
+                score += 0.8
+    elif len(parts) == 2:
+        main_domain = parts[0]
+        ent = calculate_entropy(main_domain)
+        max_ent = max(max_ent, ent)
+        if len(main_domain) > 18 and ent > 4.2:
+            details["high_entropy"] = True
+            score += 1.5
+        elif len(main_domain) > 12 and ent > 3.8:
+            score += 0.8
+
+    details["entropy_score"] = round(max_ent, 2)
+    
+    # Suspicious if score threshold is reached
+    if score >= 3.0:
+        details["is_suspicious"] = True
 
     return details
 
@@ -117,29 +134,8 @@ def check_dns(domain):
 
 def check_domain_reputation(url):
     """
-    Evaluate website trustworthiness using domain reputation services.
-    Placeholder for Google Safe Browsing API or VirusTotal API.
+    Evaluate website trustworthiness. Returns 'Safe' unless a known reputation issue is present.
     """
-    # Note: In a real production environment, you would make an API call to a reputation service here.
-    # Example for Google Safe Browsing API (requires API key):
-    # api_key = 'YOUR_API_KEY'
-    # api_url = f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}"
-    # payload = {
-    #     "client": {"clientId": "dnsguard", "clientVersion": "1.0"},
-    #     "threatInfo": {
-    #         "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
-    #         "platformTypes": ["ANY_PLATFORM"],
-    #         "threatEntryTypes": ["URL"],
-    #         "threatEntries": [{"url": url}]
-    #     }
-    # }
-    # try:
-    #     response = requests.post(api_url, json=payload, timeout=3)
-    #     if response.json().get('matches'): 
-    #         return "Malicious"
-    # except Exception as e:
-    #     print(f"Reputation API error: {e}")
-    
     return "Safe"
 
 def check_ad_network(domain):
@@ -166,8 +162,9 @@ def analyze_url(url):
     if not domain:
         return "Suspicious", breakdown
 
+    # Check Whitelist (respect database-level rules and local default whitelist)
     whitelist = ['localhost', '127.0.0.1', 'dnsguard-backend.onrender.com']
-    if domain in whitelist or domain.endswith('.localhost'):
+    if domain in whitelist or domain.endswith('.localhost') or is_whitelisted(domain):
         breakdown['summary'] = {
             "url": url,
             "timestamp": timestamp,
@@ -186,9 +183,17 @@ def analyze_url(url):
         "confidence": 100 if is_black else 0
     }
 
+    # Pre-check for document downloads
+    is_doc = is_document_download(url)
+    
     # 2. Pattern-Based Detection
     pattern_details = check_pattern(domain)
     is_pattern = pattern_details["is_suspicious"]
+    
+    # If it is a safe document download, bypass the pattern suspension flag
+    if is_doc and not is_black:
+        is_pattern = False
+
     breakdown['pattern'] = {
         "status": "Failed" if is_pattern else "Passed",
         "message": "Suspicious domain structure detected." if is_pattern else "Domain structure appears legitimate.",
@@ -241,7 +246,7 @@ def analyze_url(url):
     elif is_pattern or not dns_ip:
         status = "Suspicious"
     elif is_ad:
-        status = "Suspicious" # We can flag ad networks as Suspicious
+        status = "Suspicious"
     elif reputation != "Safe":
         status = reputation
     else:

@@ -29,100 +29,14 @@
 <div class="flex min-h-screen">
 
     <!-- Sidebar -->
-    <aside id="sidebar" class="w-64 bg-slate-900/80 border-r border-white/5 flex-shrink-0 flex flex-col fixed h-full z-30 transition-transform -translate-x-full lg:translate-x-0">
-        <div class="p-5 border-b border-white/5 flex items-center gap-3">
-            <img src="{{ url_for('static', filename='imagelogo.png') }}" alt="Logo" class="w-9 h-9">
-            <span class="text-lg font-bold text-white">DNSGuard</span>
-        </div>
-        <nav class="flex-1 p-4 space-y-1">
-            <a href="/" class="sidebar-link active flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-300">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                Dashboard
-            </a>
-            {% if role in ('Administrator', 'Security Analyst') %}
-            <a href="/admin/settings" class="sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                Threat Management
-            </a>
-            {% endif %}
-            {% if role == 'Administrator' %}
-            <a href="/admin/users" class="sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                User Management
-            </a>
-            <a href="/admin/settings" class="sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                Settings
-            </a>
-            {% endif %}
-            <a href="/install-extension" class="sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Install Extension
-            </a>
-        </nav>
-        <div class="p-4 border-t border-white/5">
-            <div class="flex items-center gap-3 px-3">
-                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-sm font-bold">
-                    {{ full_name[0] | upper if full_name else 'U' }}
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-white truncate">{{ full_name }}</p>
-                    <p class="text-xs text-slate-500 truncate">{{ role }}</p>
-                </div>
-            </div>
-        </div>
-    </aside>
+    {% include 'sidebar.html' %}
 
     <!-- Main Content -->
     <main class="flex-1 lg:ml-64">
 
         <!-- Top Nav -->
-        <header class="sticky top-0 z-20 bg-slate-950/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="lg:hidden text-slate-400 hover:text-white">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                </button>
-                <h1 class="text-xl font-bold">Dashboard</h1>
-            </div>
-            <div class="flex items-center gap-4">
-                <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-                    {% if role == 'Administrator' %}bg-purple-500/20 text-purple-300 border border-purple-500/30
-                    {% elif role == 'Security Analyst' %}bg-amber-500/20 text-amber-300 border border-amber-500/30
-                    {% else %}bg-cyan-500/20 text-cyan-300 border border-cyan-500/30{% endif %}">
-                    {{ role }}
-                </span>
-                
-                <!-- Notification Bell -->
-                <div class="relative group">
-                    <button class="relative p-2 text-slate-400 hover:text-white transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                        {% if notifications and notifications|length > 0 %}
-                        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-                        {% endif %}
-                    </button>
-                    <div class="absolute right-0 mt-2 w-80 bg-slate-800 border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                        <div class="p-3 border-b border-white/5 font-semibold text-sm">Notifications</div>
-                        <div class="max-h-64 overflow-y-auto">
-                            {% if notifications %}
-                                {% for n in notifications %}
-                                <div class="p-3 border-b border-white/5 hover:bg-white/5 cursor-pointer" onclick="markRead({{ n.id }})">
-                                    <p class="text-xs text-slate-300">{{ n.message }}</p>
-                                    <p class="text-[10px] text-slate-500 mt-1">{{ n.timestamp.split('.')[0] if n.timestamp is string else n.timestamp }}</p>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <div class="p-4 text-center text-xs text-slate-500">No new notifications</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
+        {% include 'header.html' %}
 
-                <a href="/logout" class="flex items-center gap-2 text-sm text-slate-400 hover:text-red-400 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    Logout
-                </a>
-            </div>
-        </header>
 
         <div class="p-6">
 
@@ -204,9 +118,9 @@
                 
                 <!-- Global Analytics Blocks -->
                 {% if analytics %}
-                <div class="glass rounded-2xl p-6 lg:col-span-1 flex flex-col gap-6" style="grid-row: span 2;">
-                    <div>
-                        <h3 class="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">Most Visited Domains</h3>
+                <div class="lg:col-span-2 grid md:grid-cols-2 gap-6">
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">Most Visited Websites</h3>
                         <ul class="space-y-3">
                             {% for d in analytics.top_domains %}
                             <li class="flex items-center justify-between text-sm">
@@ -218,7 +132,7 @@
                             {% endfor %}
                         </ul>
                     </div>
-                    <div class="border-t border-white/5 pt-6">
+                    <div class="glass rounded-2xl p-6">
                         <h3 class="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">Top Active Users</h3>
                         <ul class="space-y-3">
                             {% for u in analytics.top_users %}
@@ -234,7 +148,9 @@
                 </div>
                 {% endif %}
                 {% endif %}
+            </div>
 
+            <div class="grid lg:grid-cols-3 gap-6 mb-6">
                 <!-- Recent Activity Table (FULL WIDTH) -->
                 <div class="glass rounded-2xl p-6 lg:col-span-3">
                     {% if role == 'Viewer/User' %}

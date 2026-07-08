@@ -762,6 +762,14 @@ def add_notification(user_id, notif_type, message, domain):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        # Prevent duplicate notifications for the same user, type, and domain within 15 seconds
+        cursor.execute(
+            "SELECT COUNT(*) FROM Notifications WHERE user_id = %s AND type = %s AND domain = %s AND timestamp > NOW() - INTERVAL '15 seconds'",
+            (user_id, notif_type, domain)
+        )
+        if cursor.fetchone()[0] > 0:
+            conn.close()
+            return
         cursor.execute(
             'INSERT INTO Notifications (user_id, type, message, domain) VALUES (%s, %s, %s, %s)',
             (user_id, notif_type, message, domain)

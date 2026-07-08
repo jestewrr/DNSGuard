@@ -1,0 +1,86 @@
+<header class="sticky top-0 z-20 bg-slate-950/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+        <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="lg:hidden text-slate-400 hover:text-white">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <h1 class="text-xl font-bold">
+            {% if request.path == '/' %}Dashboard
+            {% elif request.path == '/admin/settings' %}Threat Management
+            {% elif request.path == '/admin/users' %}User Management
+            {% elif request.path == '/install-extension' %}Install Extension
+            {% else %}DNSGuard{% endif %}
+        </h1>
+    </div>
+    <div class="flex items-center gap-4">
+        <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+            {% if role == 'Administrator' %}bg-purple-500/20 text-purple-300 border border-purple-500/30
+            {% elif role == 'Security Analyst' %}bg-amber-500/20 text-amber-300 border border-amber-500/30
+            {% else %}bg-cyan-500/20 text-cyan-300 border border-cyan-500/30{% endif %}">
+            {{ role }}
+        </span>
+        
+        <!-- Notification Bell -->
+        <div class="relative group">
+            <button class="relative p-2 text-slate-400 hover:text-white transition" id="bell-btn">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                <span id="notif-badge" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-slate-950" style="display: none;"></span>
+            </button>
+            <div class="absolute right-0 mt-2 w-80 bg-slate-800 border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                <div class="p-3 border-b border-white/5 font-semibold text-sm">Notifications</div>
+                <div class="max-h-64 overflow-y-auto" id="notif-list">
+                    <div class="p-4 text-center text-xs text-slate-500">No new notifications</div>
+                </div>
+            </div>
+        </div>
+
+        <a href="/logout" class="flex items-center gap-2 text-sm text-slate-400 hover:text-red-400 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            Logout
+        </a>
+    </div>
+</header>
+
+<script>
+    async function fetchUnreadNotifications() {
+        try {
+            const res = await fetch('/api/notifications/unread');
+            const data = await res.json();
+            if (data.success) {
+                const badge = document.getElementById('notif-badge');
+                const list = document.getElementById('notif-list');
+                
+                if (data.notifications && data.notifications.length > 0) {
+                    badge.style.display = 'block';
+                    list.innerHTML = data.notifications.map(n => `
+                        <div class="p-3 border-b border-white/5 hover:bg-white/5 cursor-pointer" onclick="markRead(${n.id})">
+                            <p class="text-xs text-slate-300 font-medium">${n.message}</p>
+                            <p class="text-[10px] text-slate-500 mt-1">${n.timestamp}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    badge.style.display = 'none';
+                    list.innerHTML = '<div class="p-4 text-center text-xs text-slate-500">No new notifications</div>';
+                }
+            }
+        } catch (e) {
+            console.error('Error fetching notifications:', e);
+        }
+    }
+
+    async function markRead(id) {
+        try {
+            const res = await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                fetchUnreadNotifications();
+            }
+        } catch (e) {
+            console.error('Error marking notification as read:', e);
+        }
+    }
+
+    // Poll every 8 seconds
+    setInterval(fetchUnreadNotifications, 8000);
+    // Initial fetch on load
+    document.addEventListener('DOMContentLoaded', fetchUnreadNotifications);
+</script>

@@ -9,7 +9,7 @@ from database import (
     get_blacklist, get_whitelist, add_to_blacklist, remove_from_blacklist,
     add_to_whitelist, remove_from_whitelist,
     create_reset_token, verify_reset_token, reset_password,
-    get_notifications, mark_notification_read, get_reclassification_history
+    get_notifications, mark_notification_read, get_reclassification_history, add_notification
 )
 from analyzer import analyze_url, extract_domain
 import json
@@ -200,6 +200,7 @@ def login():
             if remember:
                 session.permanent = True
             update_last_login(user['id'])
+            add_notification(user['id'], 'AUTH', "Logged in successfully from dashboard.", "")
             resp = redirect(url_for('dashboard'))
             # Also set the dnsguard_token HttpOnly cookie so the browser extension
             # can detect the active web session via /api/session_status
@@ -301,6 +302,9 @@ def reset_password_page(token):
 
 @app.route('/logout')
 def logout():
+    user_id = session.get('user_id')
+    if user_id:
+        add_notification(user_id, 'AUTH', "Logged out of dashboard session.", "")
     session.clear()
     return redirect(url_for('login'))
 
@@ -421,7 +425,7 @@ def admin_delete_user(user_id):
 # ──────────────────────────────────────────────
 
 @app.route('/admin/settings')
-@admin_required
+@analyst_required
 def admin_settings():
     blacklist = get_blacklist()
     whitelist = get_whitelist()
@@ -434,35 +438,79 @@ def admin_settings():
     )
 
 @app.route('/admin/blacklist/add', methods=['POST'])
-@admin_required
+@analyst_required
 def admin_add_blacklist():
     domain = request.form.get('domain', '').strip().lower()
     if domain:
         add_to_blacklist(domain)
+        add_notification(session.get('user_id'), 'BLACKLIST', f"Added {domain} to blacklist.", domain)
         flash(f'"{domain}" added to blacklist.', 'success')
     return redirect(url_for('admin_settings'))
 
 @app.route('/admin/blacklist/<int:domain_id>/remove', methods=['POST'])
-@admin_required
+@analyst_required
 def admin_remove_blacklist(domain_id):
     remove_from_blacklist(domain_id)
+    add_notification(session.get('user_id'), 'BLACKLIST', "Removed domain from blacklist.", "")
     flash('Domain removed from blacklist.', 'success')
     return redirect(url_for('admin_settings'))
 
 @app.route('/admin/whitelist/add', methods=['POST'])
-@admin_required
+@analyst_required
 def admin_add_whitelist():
     domain = request.form.get('domain', '').strip().lower()
     if domain:
         add_to_whitelist(domain)
+        add_notification(session.get('user_id'), 'WHITELIST', f"Added {domain} to whitelist.", domain)
         flash(f'"{domain}" added to whitelist.', 'success')
     return redirect(url_for('admin_settings'))
 
 @app.route('/admin/whitelist/<int:domain_id>/remove', methods=['POST'])
-@admin_required
+@analyst_required
 def admin_remove_whitelist(domain_id):
     remove_from_whitelist(domain_id)
+    add_notification(session.get('user_id'), 'WHITELIST', "Removed domain from whitelist.", "")
     flash('Domain removed from whitelist.', 'success')
+    return redirect(url_for('admin_settings'))
+
+@app.route('/admin/blacklist/import', methods=['POST'])
+@analyst_required
+def admin_import_blacklist():
+    file = request.files.get('file')
+    if not file:
+        flash('No file selected.', 'error')
+        return redirect(url_for('admin_settings'))
+    try:
+        content = file.read().decode('utf-8')
+        domains = [line.strip().lower() for line in content.split('\n') if line.strip()]
+        added_count = 0
+        for domain in domains:
+            if add_to_blacklist(domain):
+                added_count += 1
+        add_notification(session.get('user_id'), 'BLACKLIST', f"Imported {added_count} domains to blacklist.", "")
+        flash(f'Successfully imported {added_count} domains to blacklist.', 'success')
+    except Exception as e:
+        flash(f'Error importing: {e}', 'error')
+    return redirect(url_for('admin_settings'))
+
+@app.route('/admin/whitelist/import', methods=['POST'])
+@analyst_required
+def admin_import_whitelist():
+    file = request.files.get('file')
+    if not file:
+        flash('No file selected.', 'error')
+        return redirect(url_for('admin_settings'))
+    try:
+        content = file.read().decode('utf-8')
+        domains = [line.strip().lower() for line in content.split('\n') if line.strip()]
+        added_count = 0
+        for domain in domains:
+            if add_to_whitelist(domain):
+                added_count += 1
+        add_notification(session.get('user_id'), 'WHITELIST', f"Imported {added_count} domains to whitelist.", "")
+        flash(f'Successfully imported {added_count} domains to whitelist.', 'success')
+    except Exception as e:
+        flash(f'Error importing: {e}', 'error')
     return redirect(url_for('admin_settings'))
 
 # ──────────────────────────────────────────────
@@ -517,6 +565,7 @@ def api_login():
     if user:
         auth_token = _store_session_for_user(user)
         update_last_login(user['id'])
+        add_notification(user['id'], 'AUTH', "Browser extension authenticated successfully.", "")
         resp = jsonify({'success': True, **_safe_user_dict(user)})
         # Set auth token as HttpOnly cookie — never visible in JS or Network response body
         resp.set_cookie(
@@ -534,6 +583,16 @@ def api_login():
 
 @app.route('/api/logout', methods=['POST'])
 def api_logout():
+    token = _request_token() or request.cookies.get(AUTH_COOKIE_NAME)
+    user_id = None
+    if token:
+        user = verify_auth_token(token)
+        if user:
+            user_id = user['id']
+    elif 'user_id' in session:
+        user_id = session['user_id']
+    if user_id:
+        add_notification(user_id, 'AUTH', "Logged out of browser extension.", "")
     session.clear()
     return jsonify({'success': True})
 
@@ -551,6 +610,23 @@ def api_register():
         return jsonify({'success': True, 'user_id': result})
     else:
         return jsonify({'success': False, 'error': result}), 400
+
+@app.route('/api/notifications/unread')
+@login_required
+def api_unread_notifications():
+    user_id = session.get('user_id')
+    notifs = get_notifications(user_id, unread_only=True)
+    return jsonify({
+        'success': True,
+        'notifications': [{
+            'id': n['id'],
+            'type': n['type'],
+            'message': n['message'],
+            'domain': n['domain'],
+            'timestamp': str(n['timestamp']).split('.')[0] if n['timestamp'] else '',
+            'is_read': n['is_read']
+        } for n in notifs]
+    })
 
 @app.route('/api/notifications/<int:notif_id>/read', methods=['POST'])
 @login_required
@@ -579,7 +655,9 @@ def check_url():
 
     status, breakdown = analyze_url(url)
     
-    # Debug logging removed — do not print internal details in production
+    if status in ('Malicious', 'Suspicious') and user_id:
+        add_notification(user_id, 'BLOCK', f"Access to {domain} was blocked ({status}).", domain)
+    
     log_request(url, domain, status, ip_address, user_id=user_id, breakdown=breakdown)
 
     return jsonify({

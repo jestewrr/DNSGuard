@@ -11,7 +11,7 @@ def check_for_reclassifications():
         cursor = conn.cursor()
         
         # Get unique domains from recent logs
-        cursor.execute("SELECT DISTINCT domain FROM Logs ORDER BY id DESC LIMIT 100")
+        cursor.execute("SELECT domain FROM Logs GROUP BY domain ORDER BY MAX(id) DESC LIMIT 100")
         domains = [r[0] for r in cursor.fetchall()]
         
         for domain in domains:
