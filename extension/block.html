@@ -83,7 +83,8 @@
         <h2>DNSGuard has prevented access to this website</h2>
         <div class="url-box" id="blocked-url"></div>
         <p class="warning-text">
-            This website has been classified as <strong id="status-text">Unsafe</strong> by our threat detection engine. 
+            This website has been classified as <strong id="status-text">Unsafe</strong>. <br>
+            <strong style="color: #ef4444;" id="reason-text"></strong><br><br>
             Attackers on this site may try to trick you into installing malware, revealing passwords, or stealing personal information.
         </p>
         <button class="btn btn-primary" onclick="window.history.back()">← Go Back Safely</button>
@@ -93,9 +94,11 @@
         const urlParams = new URLSearchParams(window.location.search);
         const url = urlParams.get('url');
         const status = urlParams.get('status');
+        const reason = urlParams.get('reason');
 
         if (url) document.getElementById('blocked-url').innerText = url;
         if (status) document.getElementById('status-text').innerText = status;
+        if (reason) document.getElementById('reason-text').innerText = "Reason: " + reason;
 
         const container = document.getElementById('main-container');
         if (status === 'Suspicious') {
