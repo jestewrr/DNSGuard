@@ -62,6 +62,8 @@ def check_pattern(domain):
         "excessive_hyphens": False,
         "excessive_subdomains": False,
         "suspicious_keywords": False,
+        "brand_impersonation": False,
+        "phishing_phrases": False,
         "high_entropy": False,
         "entropy_score": 0.0
     }
@@ -91,8 +93,25 @@ def check_pattern(domain):
         if len(parts) > 3 or parts[-1] not in ['com', 'org', 'net']:
             details["suspicious_keywords"] = True
             score += 2.0
+
+    # Indicator 5: Brand name impersonation & keyword combinations
+    brands = ['office365', 'microsoft', 'paypal', 'netflix', 'google', 'facebook', 'apple', 'amazon', 'outlook', 'yahoo', 'adobe', 'dropbox']
+    suspicious_combos = ['alert', 'login', 'signin', 'verify', 'verification', 'update', 'support', 'account', 'billing', 'banking', 'auth', 'portal']
+    
+    # Check if a brand name is combined with a suspicious word (e.g. office365-alert-login.com)
+    has_brand = any(brand in domain for brand in brands)
+    has_combo = any(combo in domain for combo in suspicious_combos)
+    if has_brand and has_combo and ('-' in domain or len(parts) > 2):
+        details["brand_impersonation"] = True
+        score += 3.0
+        
+    # Indicator 6: High-risk hyphenated phishing phrases
+    phishing_phrases = ['alert-login', 'secure-login', 'login-alert', 'verify-login', 'update-login', 'account-update', 'login-update', 'signin-alert', 'secure-signin']
+    if any(phrase in domain for phrase in phishing_phrases):
+        details["phishing_phrases"] = True
+        score += 3.0
             
-    # Indicator 5: Entropy and length of labels
+    # Indicator 7: Entropy and length of labels
     max_ent = 0.0
     if len(parts) > 2:
         subdomains = parts[:-2]
