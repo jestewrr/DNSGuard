@@ -1,5 +1,5 @@
 // The default URL of our Flask backend
-let backendUrl = "https://dnsguard-backend.onrender.com";
+let backendUrl = "https://dnsguard.onrender.com";
 let lastSessionCheckTime = 0;
 
 // Initialize backendUrl from storage
@@ -12,21 +12,21 @@ chrome.storage.local.get(['backend_url'], function(result) {
 // Update backendUrl dynamically when it changes in storage
 chrome.storage.onChanged.addListener(function(changes, namespace) {
     if (changes.backend_url) {
-        backendUrl = changes.backend_url.newValue || "https://dnsguard-backend.onrender.com";
+        backendUrl = changes.backend_url.newValue || "https://dnsguard.onrender.com";
         console.log("[DNSGuard Background] Active backend updated to:", backendUrl);
     }
 });
 
-// Listen for messages from content script or popup to sync session
+// Listen for messages from content script to sync backend-authenticated session state
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "sync_session") {
         console.log("[DNSGuard Background] Received sync_session:", message);
         if (message.authenticated) {
-            // Store only non-sensitive identifiers — never the auth token
             chrome.storage.local.set({
                 user_id: message.user_id,
                 username: message.username,
                 role: message.role,
+                auth_token: message.auth_token || null,
                 backend_url: message.backend_url
             }, () => {
                 console.log("[DNSGuard Background] Stored authenticated state for user:", message.username);
@@ -34,7 +34,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         } else {
             chrome.storage.local.get(['backend_url'], function(result) {
                 if (!result.backend_url || result.backend_url === message.backend_url) {
-                    chrome.storage.local.remove(['user_id', 'username', 'role'], () => {
+                    chrome.storage.local.remove(['user_id', 'username', 'role', 'auth_token'], () => {
                         console.log("[DNSGuard Background] Cleared authenticated state.");
                     });
                 } else {
@@ -70,7 +70,7 @@ chrome.webRequest.onBeforeRequest.addListener(
         }
     } catch (e) {
         // Fallback checks
-        if (url.includes("dnsguard-backend.onrender.com")) {
+        if (url.includes("dnsguard.onrender.com")) {
             return { cancel: false };
         }
     }
@@ -91,28 +91,30 @@ chrome.webRequest.onBeforeRequest.addListener(
 
 async function checkUrlStatus(url, tabId) {
     try {
-        // Retrieve user_id and backend_url from local storage
-        chrome.storage.local.get(['user_id', 'backend_url'], async function(result) {
+        // Retrieve backend-authenticated session state from local storage
+        chrome.storage.local.get(['user_id', 'backend_url', 'auth_token'], async function(result) {
             const userId = result.user_id || null;
             const currentBackend = result.backend_url || backendUrl;
+            const authToken = result.auth_token || null;
 
-            if (!userId) {
-                return; // Disable website monitoring when not authenticated
+            if (!userId || !authToken) {
+                return; // Disable monitoring until the web app has synced an authenticated session
             }
+
+            const authHeaders = { 'Authorization': `Bearer ${authToken}` };
 
             // Session Verification Optimization: Poll at most once every 60 seconds
             if (userId && (Date.now() - lastSessionCheckTime > 60000)) {
                 try {
-                    // credentials: 'include' sends the HttpOnly session cookie automatically
                     const sessionRes = await fetch(`${currentBackend}/api/session_status`, {
-                        credentials: 'include'
+                        headers: authHeaders
                     });
                     const sessionData = await sessionRes.json();
                     lastSessionCheckTime = Date.now();
                     
                     if (!sessionData.authenticated) {
                         console.log("[DNSGuard Background] Session expired on backend. Clearing local auth state.");
-                        chrome.storage.local.remove(['user_id', 'username', 'role']);
+                        chrome.storage.local.remove(['user_id', 'username', 'role', 'auth_token']);
                         return;
                     }
                 } catch (e) {
@@ -123,8 +125,10 @@ async function checkUrlStatus(url, tabId) {
             const checkApiUrl = `${currentBackend}/api/check_url`;
             const response = await fetch(checkApiUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...authHeaders
+                },
                 body: JSON.stringify({ url: url, user_id: userId })
             });
         

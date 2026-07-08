@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash, send_file
 import os
+import io
+import zipfile
 from functools import wraps
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from database import (
@@ -25,6 +27,7 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 AUTH_TOKEN_SALT = 'dnsguard-auth-token'
 AUTH_TOKEN_MAX_AGE = int(os.environ.get('AUTH_TOKEN_MAX_AGE', str(60 * 60 * 24 * 7)))
 AUTH_COOKIE_NAME = 'dnsguard_token'
+EXTENSION_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'extension')
 
 
 def _auth_serializer():
@@ -311,11 +314,25 @@ def install_extension():
 @app.route('/download-extension')
 @login_required
 def download_extension():
-    zip_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'DNSGuard_Extension.zip')
-    if os.path.exists(zip_path):
-        return send_file(zip_path, as_attachment=True, download_name='DNSGuard_Extension.zip')
-    flash('Extension file not found. Please contact the administrator.', 'error')
-    return redirect(url_for('install_extension'))
+    if not os.path.isdir(EXTENSION_DIR):
+        flash('Extension folder not found. Please contact the administrator.', 'error')
+        return redirect(url_for('install_extension'))
+
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for root, _, files in os.walk(EXTENSION_DIR):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                archive_name = os.path.relpath(file_path, EXTENSION_DIR)
+                archive.write(file_path, archive_name)
+
+    archive_buffer.seek(0)
+    return send_file(
+        archive_buffer,
+        as_attachment=True,
+        download_name='DNSGuard_Extension.zip',
+        mimetype='application/zip'
+    )
 
 # ──────────────────────────────────────────────
 # Dashboard

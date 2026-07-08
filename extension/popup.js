@@ -1,62 +1,68 @@
 // The default URL of our Flask backend
-let backendUrl = "https://dnsguard-backend.onrender.com";
+let backendUrl = "https://dnsguard.onrender.com";
 
-// ──────────────────────────────────────────────
-// Session status check and UI update
-// ──────────────────────────────────────────────
+function setAuthenticatedState(username, currentBackend, userId, authToken) {
+    chrome.storage.local.set({
+        user_id: userId,
+        username: username,
+        auth_token: authToken,
+        backend_url: currentBackend
+    });
+
+    document.getElementById('unauth-section').style.display = 'none';
+    document.getElementById('auth-section').style.display = 'block';
+    document.getElementById('display-user').innerText = username;
+    checkCurrentTab(userId, currentBackend, authToken);
+}
+
+function setUnauthenticatedState() {
+    chrome.storage.local.remove(['user_id', 'username', 'role', 'auth_token']);
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('unauth-section').style.display = 'block';
+}
 
 function updateUI() {
-    chrome.storage.local.get(['backend_url', 'user_id', 'username'], function (result) {
+    chrome.storage.local.get(['backend_url', 'user_id', 'username', 'auth_token'], function (result) {
         const currentBackend = result.backend_url || backendUrl;
-        
-        // Update footer and login redirection links
+        const authToken = result.auth_token || null;
+
         document.getElementById('dashboard-link').href = currentBackend;
 
-        // Perform active verification with the backend
-        fetch(`${currentBackend}/api/session_status`, { credentials: 'include' })
+        if (!authToken) {
+            setUnauthenticatedState();
+            return;
+        }
+
+        const headers = { 'Authorization': `Bearer ${authToken}` };
+        fetch(`${currentBackend}/api/session_status`, { headers })
             .then(res => res.json())
             .then(data => {
                 if (data.authenticated) {
-                    // Update user storage
-                    chrome.storage.local.set({
-                        user_id: data.user_id || data.id,
-                        username: data.username,
-                        role: data.role
-                    });
-                    
-                    // Show Auth Section
-                    document.getElementById('unauth-section').style.display = 'none';
-                    document.getElementById('auth-section').style.display = 'block';
-                    document.getElementById('display-user').innerText = data.username;
-                    
-                    // Check status of the current tab
-                    checkCurrentTab(data.user_id || data.id, currentBackend);
+                    setAuthenticatedState(
+                        data.username,
+                        currentBackend,
+                        data.user_id || data.id,
+                        data.auth_token || authToken
+                    );
                 } else {
-                    // Clear user storage
-                    chrome.storage.local.remove(['user_id', 'username', 'role']);
-                    
-                    // Show Unauth Section
-                    document.getElementById('auth-section').style.display = 'none';
-                    document.getElementById('unauth-section').style.display = 'block';
+                    setUnauthenticatedState();
                 }
             })
             .catch(err => {
                 console.error("Session verification failed:", err);
-                // Offline or server down: fallback to stored credentials if they exist
-                if (result.username) {
+                if (result.username && result.user_id) {
                     document.getElementById('unauth-section').style.display = 'none';
                     document.getElementById('auth-section').style.display = 'block';
                     document.getElementById('display-user').innerText = result.username;
-                    checkCurrentTab(result.user_id, currentBackend);
+                    checkCurrentTab(result.user_id, currentBackend, authToken);
                 } else {
-                    document.getElementById('auth-section').style.display = 'none';
-                    document.getElementById('unauth-section').style.display = 'block';
+                    setUnauthenticatedState();
                 }
             });
     });
 }
 
-function checkCurrentTab(userId, currentBackend) {
+function checkCurrentTab(userId, currentBackend, authToken) {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         if (!tabs || tabs.length === 0) return;
         const currentUrl = tabs[0].url;
@@ -66,10 +72,14 @@ function checkCurrentTab(userId, currentBackend) {
             return;
         }
 
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+        };
+
         fetch(`${currentBackend}/api/check_url`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
+            headers: headers,
             body: JSON.stringify({ url: currentUrl, user_id: userId })
         })
             .then(r => r.json())
@@ -103,17 +113,17 @@ document.addEventListener('DOMContentLoaded', function () {
             const tabUrl = tabs[0].url;
             if (tabUrl.includes('localhost:5000') || tabUrl.includes('127.0.0.1:5000')) {
                 chrome.storage.local.set({ backend_url: 'http://127.0.0.1:5000' }, updateUI);
-            } else if (tabUrl.includes('dnsguard-backend.onrender.com')) {
-                chrome.storage.local.set({ backend_url: 'https://dnsguard-backend.onrender.com' }, updateUI);
+            } else if (tabUrl.includes('dnsguard.onrender.com')) {
+                chrome.storage.local.set({ backend_url: 'https://dnsguard.onrender.com' }, updateUI);
             }
         }
     });
 
-    // Sign In click handler
+    // Open the web app login page; the extension itself never logs users in.
     document.getElementById('go-to-login-btn').addEventListener('click', function () {
         chrome.storage.local.get(['backend_url'], function (result) {
             const currentBackend = result.backend_url || backendUrl;
-            window.open(`${currentBackend}/login`, '_blank');
+            chrome.tabs.create({ url: `${currentBackend}/login` });
         });
     });
 });
