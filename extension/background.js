@@ -96,6 +96,10 @@ async function checkUrlStatus(url, tabId) {
             const userId = result.user_id || null;
             const currentBackend = result.backend_url || backendUrl;
 
+            if (!userId) {
+                return; // Disable website monitoring when not authenticated
+            }
+
             // Session Verification Optimization: Poll at most once every 60 seconds
             if (userId && (Date.now() - lastSessionCheckTime > 60000)) {
                 try {

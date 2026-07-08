@@ -33,7 +33,6 @@
         .unknown { color: #64748b; }
 
         .user-info {
-            display: none;
             text-align: center;
             padding: 12px 16px;
             border-top: 1px solid rgba(255,255,255,0.06);
@@ -41,66 +40,18 @@
             color: #94a3b8;
         }
         .user-info strong { color: white; }
-        .logout-btn {
-            color: #ef4444;
-            cursor: pointer;
-            text-decoration: none;
-            margin-left: 6px;
-            font-weight: 600;
-        }
 
-        .login-box {
-            display: none;
-            padding: 16px;
+        .unauth-box {
+            padding: 24px 16px;
+            text-align: center;
         }
-        .login-box label {
-            display: block;
-            font-size: 11px;
-            color: #94a3b8;
-            margin-bottom: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .login-box input {
-            width: 100%;
-            padding: 10px 12px;
-            margin-bottom: 12px;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.1);
-            background: rgba(255,255,255,0.05);
-            color: white;
+        .unauth-text {
             font-size: 13px;
-            outline: none;
+            color: #94a3b8;
+            margin-bottom: 16px;
+            line-height: 1.6;
         }
-        .login-box input::placeholder { color: #475569; }
-        .login-box input:focus { border-color: rgba(34,211,238,0.5); box-shadow: 0 0 0 2px rgba(34,211,238,0.15); }
-
-        /* Password field wrapper for show/hide toggle */
-        .pw-wrapper {
-            position: relative;
-            margin-bottom: 12px;
-        }
-        .pw-wrapper input {
-            margin-bottom: 0;
-            padding-right: 38px;
-        }
-        .pw-toggle {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #64748b;
-            padding: 2px;
-            display: flex;
-            align-items: center;
-        }
-        .pw-toggle:hover { color: #94a3b8; }
-        .pw-toggle svg { width: 16px; height: 16px; }
-
-        .login-box button, .register-btn {
+        .go-btn {
             width: 100%;
             padding: 10px;
             border: none;
@@ -108,50 +59,11 @@
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
-        }
-        #login-btn {
             background: linear-gradient(to right, #06b6d4, #3b82f6);
             color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 0;
+            transition: opacity 0.2s;
         }
-        #login-btn:hover:not(:disabled) { opacity: 0.9; }
-        #login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .register-btn {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.1) !important;
-            color: #94a3b8;
-            margin-top: 8px;
-        }
-        .register-btn:hover { border-color: rgba(34,211,238,0.3) !important; color: #22d3ee; }
-
-        /* Error message variants */
-        #login-error {
-            font-size: 11px;
-            margin-top: -4px;
-            margin-bottom: 8px;
-            display: none;
-            padding: 6px 10px;
-            border-radius: 6px;
-        }
-        #login-error.error-credentials { color: #fca5a5; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); }
-        #login-error.error-network    { color: #fcd34d; background: rgba(234,179,8,0.1);  border: 1px solid rgba(234,179,8,0.2); }
-        #login-error.error-server     { color: #fb923c; background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2); }
-
-        /* Spinner */
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner {
-            width: 14px; height: 14px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            display: none;
-        }
+        .go-btn:hover { opacity: 0.9; }
 
         .footer {
             padding: 12px 16px;
@@ -173,50 +85,27 @@
         <h3>DNSGuard</h3>
     </div>
 
-    <!-- Login Section -->
-    <div id="login-section" class="login-box">
-        <label>Username</label>
-        <input type="text" id="username" placeholder="Enter username" autocomplete="username">
-        <label>Password</label>
-        <div class="pw-wrapper">
-            <input type="password" id="password" placeholder="Enter password" autocomplete="current-password">
-            <button class="pw-toggle" id="pw-toggle-btn" type="button" title="Show/hide password">
-                <!-- Eye icon (show) -->
-                <svg id="eye-show" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                </svg>
-                <!-- Eye-off icon (hide) — hidden initially -->
-                <svg id="eye-hide" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/>
-                </svg>
-            </button>
-        </div>
-        <div id="login-error"></div>
-        <button id="login-btn">
-            <div class="spinner" id="login-spinner"></div>
-            <span id="login-btn-text">Sign In</span>
-        </button>
-        <button class="register-btn" id="register-btn">Create Account</button>
+    <!-- Unauthenticated View -->
+    <div id="unauth-section" class="unauth-box" style="display: none;">
+        <p class="unauth-text">
+            Please sign in to DNS Guard from the web application to activate browser protection.
+        </p>
+        <button id="go-to-login-btn" class="go-btn">Sign In</button>
     </div>
 
-    <!-- Status Section -->
-    <div id="status-section">
+    <!-- Authenticated View -->
+    <div id="auth-section" style="display: none;">
         <div class="status-box">
             <div class="status-label">Current Site Status</div>
             <div id="site-status" class="unknown">Analyzing...</div>
         </div>
         <div class="user-info" id="user-info">
             Signed in as <strong><span id="display-user"></span></strong>
-            <span id="logout-btn" class="logout-btn">Logout</span>
         </div>
     </div>
 
     <div class="footer">
-        <a href="https://dnsguard-backend.onrender.com" target="_blank">Open Dashboard →</a>
+        <a id="dashboard-link" href="https://dnsguard-backend.onrender.com" target="_blank">Open Dashboard →</a>
     </div>
 
     <script src="popup.js"></script>
