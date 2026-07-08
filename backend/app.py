@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash, send_file
+import os
 from functools import wraps
 from database import (
     init_db, log_request, get_recent_logs, get_log_stats, get_log_stats_yesterday, get_global_analytics,
@@ -234,6 +235,24 @@ def reset_password_page(token):
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+@app.route('/install-extension')
+@login_required
+def install_extension():
+    return render_template('install_extension.html',
+        role=session.get('role'),
+        username=session.get('username'),
+        full_name=session.get('full_name', session.get('username'))
+    )
+
+@app.route('/download-extension')
+@login_required
+def download_extension():
+    zip_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'DNSGuard_Extension.zip')
+    if os.path.exists(zip_path):
+        return send_file(zip_path, as_attachment=True, download_name='DNSGuard_Extension.zip')
+    flash('Extension file not found. Please contact the administrator.', 'error')
+    return redirect(url_for('install_extension'))
 
 # ──────────────────────────────────────────────
 # Dashboard
