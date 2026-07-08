@@ -26,7 +26,7 @@ function updateUI() {
         const currentBackend = result.backend_url || backendUrl;
         const authToken = result.auth_token || null;
 
-        document.getElementById('dashboard-link').href = currentBackend;
+        document.getElementById('dashboard-link').href = `${currentBackend}/`;
 
         if (!authToken) {
             setUnauthenticatedState();
@@ -119,11 +119,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Open the web app login page; the extension itself never logs users in.
+    // Refresh the web app dashboard; the backend will redirect to login when needed.
     document.getElementById('go-to-login-btn').addEventListener('click', function () {
         chrome.storage.local.get(['backend_url'], function (result) {
             const currentBackend = result.backend_url || backendUrl;
-            chrome.tabs.create({ url: `${currentBackend}/login` });
+            chrome.tabs.create({ url: `${currentBackend}/` });
         });
     });
 });
