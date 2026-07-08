@@ -13,7 +13,7 @@ from database import (
     create_reset_token, verify_reset_token, reset_password,
     get_notifications, mark_notification_read, get_reclassification_history, add_notification
 )
-from analyzer import analyze_url, extract_domain
+from analyzer import analyze_url, extract_domain, clear_analysis_cache
 import json
 import requests
 from scheduler import start_scheduler
@@ -27,7 +27,7 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 AUTH_TOKEN_SALT = 'dnsguard-auth-token'
 AUTH_TOKEN_MAX_AGE = int(os.environ.get('AUTH_TOKEN_MAX_AGE', str(60 * 60 * 24 * 7)))
 AUTH_COOKIE_NAME = 'dnsguard_token'
-EXTENSION_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'extension')
+EXTENSION_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'extension', 'DNSGuard_Extension')
 
 
 def _auth_serializer():
@@ -451,6 +451,7 @@ def admin_add_blacklist():
     domain = request.form.get('domain', '').strip().lower()
     if domain:
         add_to_blacklist(domain)
+        clear_analysis_cache()
         add_notification(session.get('user_id'), 'BLACKLIST', f"Added {domain} to blacklist.", domain)
         flash(f'"{domain}" added to blacklist.', 'success')
     return redirect(url_for('admin_settings'))
@@ -459,6 +460,7 @@ def admin_add_blacklist():
 @analyst_required
 def admin_remove_blacklist(domain_id):
     remove_from_blacklist(domain_id)
+    clear_analysis_cache()
     add_notification(session.get('user_id'), 'BLACKLIST', "Removed domain from blacklist.", "")
     flash('Domain removed from blacklist.', 'success')
     return redirect(url_for('admin_settings'))
@@ -469,6 +471,7 @@ def admin_add_whitelist():
     domain = request.form.get('domain', '').strip().lower()
     if domain:
         add_to_whitelist(domain)
+        clear_analysis_cache()
         add_notification(session.get('user_id'), 'WHITELIST', f"Added {domain} to whitelist.", domain)
         flash(f'"{domain}" added to whitelist.', 'success')
     return redirect(url_for('admin_settings'))
@@ -477,6 +480,7 @@ def admin_add_whitelist():
 @analyst_required
 def admin_remove_whitelist(domain_id):
     remove_from_whitelist(domain_id)
+    clear_analysis_cache()
     add_notification(session.get('user_id'), 'WHITELIST', "Removed domain from whitelist.", "")
     flash('Domain removed from whitelist.', 'success')
     return redirect(url_for('admin_settings'))
@@ -495,6 +499,8 @@ def admin_import_blacklist():
         for domain in domains:
             if add_to_blacklist(domain):
                 added_count += 1
+        if added_count > 0:
+            clear_analysis_cache()
         add_notification(session.get('user_id'), 'BLACKLIST', f"Imported {added_count} domains to blacklist.", "")
         flash(f'Successfully imported {added_count} domains to blacklist.', 'success')
     except Exception as e:
@@ -515,6 +521,8 @@ def admin_import_whitelist():
         for domain in domains:
             if add_to_whitelist(domain):
                 added_count += 1
+        if added_count > 0:
+            clear_analysis_cache()
         add_notification(session.get('user_id'), 'WHITELIST', f"Imported {added_count} domains to whitelist.", "")
         flash(f'Successfully imported {added_count} domains to whitelist.', 'success')
     except Exception as e:
@@ -533,6 +541,7 @@ def analyst_reclassify(log_id):
         flash('Invalid status.', 'error')
         return redirect(url_for('dashboard'))
     reclassify_log(log_id, new_status, session.get('username'))
+    clear_analysis_cache()
     flash(f'Log #{log_id} reclassified as {new_status}.', 'success')
     return redirect(url_for('dashboard'))
 

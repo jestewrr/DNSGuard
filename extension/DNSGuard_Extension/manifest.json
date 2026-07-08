@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "DNSGuard - Secure Web Monitoring",
+  "version": "1.0",
+  "description": "Monitors websites and blocks malicious domains before access.",
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "DNSGuard"
+  },
+  "icons": {
+    "16": "imagelogo.png",
+    "48": "imagelogo.png",
+    "128": "imagelogo.png"
+  }
+}

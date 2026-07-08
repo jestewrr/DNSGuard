@@ -5,7 +5,14 @@ from database import is_blacklisted, is_whitelisted
 import math
 from collections import Counter
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
+
+# In-memory cache for analyzed domains to avoid redundant queries and DNS resolution
+ANALYSIS_CACHE = {}  # {domain: (status, breakdown_dict, expire_time)}
+
+def clear_analysis_cache():
+    global ANALYSIS_CACHE
+    ANALYSIS_CACHE.clear()
 
 def extract_domain(url):
     try:
@@ -122,15 +129,21 @@ def check_dns(domain):
     Returns the IP address if valid, None if it seems invalid/suspicious.
     """
     try:
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 1.0
+        resolver.lifetime = 1.0
         # Check A records
-        answers = dns.resolver.resolve(domain, 'A')
+        answers = resolver.resolve(domain, 'A')
         return answers[0].to_text()
     except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.Timeout, Exception):
         pass
         
     try:
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 1.0
+        resolver.lifetime = 1.0
         # Check AAAA records if A fails
-        answers = dns.resolver.resolve(domain, 'AAAA')
+        answers = resolver.resolve(domain, 'AAAA')
         return answers[0].to_text()
     except Exception:
         return None
@@ -172,6 +185,22 @@ def analyze_url(url):
     if not domain:
         return "Suspicious", breakdown
 
+    # Check cache first
+    now = datetime.utcnow()
+    if domain in ANALYSIS_CACHE:
+        cached_status, cached_breakdown, cached_expiry = ANALYSIS_CACHE[domain]
+        if now < cached_expiry:
+            # Return copy/updated fields to avoid mutating cached structures unexpectedly
+            import copy
+            result_breakdown = copy.deepcopy(cached_breakdown)
+            result_breakdown['summary']['url'] = url
+            result_breakdown['summary']['timestamp'] = timestamp
+            if 'dns' in result_breakdown:
+                result_breakdown['dns']['timestamp'] = timestamp
+            return cached_status, result_breakdown
+        else:
+            del ANALYSIS_CACHE[domain]
+
     # Check Whitelist (respect database-level rules and local default whitelist)
     whitelist = ['localhost', '127.0.0.1', 'dnsguard.onrender.com']
     if domain in whitelist or domain.endswith('.localhost') or is_whitelisted(domain):
@@ -182,6 +211,8 @@ def analyze_url(url):
             "overall_confidence": "100%",
             "final_status": "Safe"
         }
+        # Cache whitelist results for 10 minutes
+        ANALYSIS_CACHE[domain] = ("Safe", breakdown, now + timedelta(minutes=10))
         return "Safe", breakdown
 
     # 1. Blacklist-Based Detection
@@ -222,22 +253,32 @@ def analyze_url(url):
         "confidence": 98 if reputation == "Safe" else 15
     }
 
-    # 4. & 5. Real-Time Threat Detection (DNS resolution checks)
-    dns_ip = check_dns(domain)
-    breakdown['dns'] = {
-        "status": "Passed" if dns_ip else "Failed",
-        "message": f"Domain successfully resolved to IP: {dns_ip}" if dns_ip else "Domain failed to resolve.",
-        "ip": dns_ip,
-        "timestamp": timestamp
-    }
-    
-    # 6. Pop-Up / Ad Detection
+    # 4. Pop-Up / Ad Detection
     is_ad = check_ad_network(domain)
     breakdown['ad_detection'] = {
         "status": "Failed" if is_ad else "Passed",
         "message": "Matches known intrusive advertising or popup networks." if is_ad else "No association with intrusive advertising or popup networks.",
         "risk_score": 85 if is_ad else 5
     }
+
+    # 5. Real-Time Threat Detection (DNS resolution checks)
+    # Bypassed if we already know the domain is malicious or an ad network
+    if is_black or is_ad:
+        dns_ip = None
+        breakdown['dns'] = {
+            "status": "Skipped",
+            "message": "DNS resolution bypassed for known malicious/advertising domain.",
+            "ip": None,
+            "timestamp": timestamp
+        }
+    else:
+        dns_ip = check_dns(domain)
+        breakdown['dns'] = {
+            "status": "Passed" if dns_ip else "Failed",
+            "message": f"Domain successfully resolved to IP: {dns_ip}" if dns_ip else "Domain failed to resolve.",
+            "ip": dns_ip,
+            "timestamp": timestamp
+        }
 
     # Final Status Logic
     checks = [not is_black, not is_pattern, reputation == "Safe", bool(dns_ip), not is_ad]
@@ -263,5 +304,8 @@ def analyze_url(url):
         status = "Safe"
         
     breakdown['summary']['final_status'] = status
+
+    # Cache results for 10 minutes
+    ANALYSIS_CACHE[domain] = (status, breakdown, now + timedelta(minutes=10))
 
     return status, breakdown

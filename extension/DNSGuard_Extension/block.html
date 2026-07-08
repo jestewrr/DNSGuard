@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Warning: Unsafe Website — DNSGuard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: white;
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        .container {
+            text-align: center;
+            max-width: 560px;
+        }
+        .icon-container {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            font-size: 40px;
+        }
+        .malicious .icon-container { background: rgba(239,68,68,0.15); }
+        .suspicious .icon-container { background: rgba(234,179,8,0.15); }
+        h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+        .malicious h1 { color: #ef4444; }
+        .suspicious h1 { color: #eab308; }
+        h2 { font-size: 18px; font-weight: 400; color: #94a3b8; margin-bottom: 32px; }
+        .url-box {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 14px;
+            word-break: break-all;
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+        .warning-text {
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 32px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .btn-primary {
+            background: linear-gradient(to right, #06b6d4, #3b82f6);
+            color: white;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: scale(1.02); }
+        .logo { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 32px; }
+        .logo img { width: 32px; height: 32px; }
+        .logo span { font-size: 16px; font-weight: 700; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="container" id="main-container">
+        <div class="logo">
+            <img src="imagelogo.png" alt="DNSGuard">
+            <span>DNSGuard</span>
+        </div>
+        <div class="icon-container">⚠️</div>
+        <h1>Dangerous Site Blocked</h1>
+        <h2>DNSGuard has prevented access to this website</h2>
+        <div class="url-box" id="blocked-url"></div>
+        <p class="warning-text">
+            This website has been classified as <strong id="status-text">Unsafe</strong>. <br>
+            <strong style="color: #ef4444;" id="reason-text"></strong><br><br>
+            Attackers on this site may try to trick you into installing malware, revealing passwords, or stealing personal information.
+        </p>
+        <button class="btn btn-primary" onclick="window.history.back()">← Go Back Safely</button>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const url = urlParams.get('url');
+        const status = urlParams.get('status');
+        const reason = urlParams.get('reason');
+
+        if (url) document.getElementById('blocked-url').innerText = url;
+        if (status) document.getElementById('status-text').innerText = status;
+        if (reason) document.getElementById('reason-text').innerText = "Reason: " + reason;
+
+        const container = document.getElementById('main-container');
+        if (status === 'Suspicious') {
+            container.classList.add('suspicious');
+            document.querySelector('h1').textContent = 'Suspicious Site Detected';
+        } else {
+            container.classList.add('malicious');
+        }
+    </script>
+</body>
+</html>
