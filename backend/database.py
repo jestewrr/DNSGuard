@@ -196,10 +196,14 @@ def init_db():
                     u
                 )
         else:
-            # Force update demo accounts in case they were broken by previous double hashing logic
-            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'admin'", (normalize_password_hash('admin123'),))
-            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'analyst'", (normalize_password_hash('analyst123'),))
-            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'viewer'", (normalize_password_hash('viewer123'),))
+            # Only fix demo account passwords if they are using a broken/legacy hash format
+            for username, password in [('admin', 'admin123'), ('analyst', 'analyst123'), ('viewer', 'viewer123')]:
+                cursor.execute("SELECT password_hash FROM Users WHERE username = %s", (username,))
+                row = cursor.fetchone()
+                if row and not _password_hash_is_current(row['password_hash']):
+                    cursor.execute("UPDATE Users SET password_hash = %s WHERE username = %s",
+                                   (normalize_password_hash(password), username))
+                    print(f"[init_db] Fixed legacy password hash for demo account: {username}")
 
         conn.commit()
         conn.close()
