@@ -130,18 +130,21 @@ def init_db():
         # Insert default users if empty
         cursor.execute('SELECT COUNT(*) FROM Users')
         if cursor.fetchone()[0] == 0:
-            import hashlib
-            def pre_hash(pw): return hashlib.sha256(pw.encode()).hexdigest()
             default_users = [
-                ('Admin User', 'admin', 'admin@dnsguard.local', generate_password_hash(pre_hash('admin123')), 'Administrator'),
-                ('Analyst User', 'analyst', 'analyst@dnsguard.local', generate_password_hash(pre_hash('analyst123')), 'Security Analyst'),
-                ('Viewer User', 'viewer', 'viewer@dnsguard.local', generate_password_hash(pre_hash('viewer123')), 'Viewer/User'),
+                ('Admin User', 'admin', 'admin@dnsguard.local', generate_password_hash('admin123'), 'Administrator'),
+                ('Analyst User', 'analyst', 'analyst@dnsguard.local', generate_password_hash('analyst123'), 'Security Analyst'),
+                ('Viewer User', 'viewer', 'viewer@dnsguard.local', generate_password_hash('viewer123'), 'Viewer/User'),
             ]
             for u in default_users:
                 cursor.execute(
                     'INSERT INTO Users (full_name, username, email, password_hash, role) VALUES (%s, %s, %s, %s, %s)',
                     u
                 )
+        else:
+            # Force update demo accounts in case they were broken by previous double hashing logic
+            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'admin'", (generate_password_hash('admin123'),))
+            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'analyst'", (generate_password_hash('analyst123'),))
+            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'viewer'", (generate_password_hash('viewer123'),))
 
         conn.commit()
         conn.close()
