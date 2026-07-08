@@ -15,6 +15,7 @@
                 user_id: data.user_id || null,
                 username: data.username || null,
                 role: data.role || null,
+                auth_token: data.auth_token || null,
                 backend_url: origin
             });
             console.log("[DNSGuard Content Script] Session status synced:", data);

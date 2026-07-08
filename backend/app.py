@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash, send_file
 import os
 from functools import wraps
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from database import (
     init_db, log_request, get_recent_logs, get_log_stats, get_log_stats_yesterday, get_global_analytics,
     verify_user, get_user_by_id, create_user, get_all_users, update_user, delete_user,
@@ -17,6 +18,56 @@ from scheduler import start_scheduler
 
 app = Flask(__name__)
 app.secret_key = 'dnsguard_super_secret_key_change_in_prod'
+app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() in ('1', 'true', 'yes', 'on')
+
+AUTH_TOKEN_SALT = 'dnsguard-auth-token'
+AUTH_TOKEN_MAX_AGE = int(os.environ.get('AUTH_TOKEN_MAX_AGE', str(60 * 60 * 24 * 7)))
+
+
+def _auth_serializer():
+    return URLSafeTimedSerializer(app.secret_key, salt=AUTH_TOKEN_SALT)
+
+
+def issue_auth_token(user):
+    return _auth_serializer().dumps({
+        'user_id': user['id'],
+        'username': user['username'],
+        'role': user['role']
+    })
+
+
+def verify_auth_token(token):
+    if not token:
+        return None
+    try:
+        data = _auth_serializer().loads(token, max_age=AUTH_TOKEN_MAX_AGE)
+    except (BadSignature, SignatureExpired):
+        return None
+
+    user = get_user_by_id(data.get('user_id'))
+    if not user or not user.get('is_active', True):
+        return None
+    if user['username'] != data.get('username'):
+        return None
+    return user
+
+
+def _store_session_for_user(user):
+    auth_token = issue_auth_token(user)
+    session['user_id'] = user['id']
+    session['username'] = user['username']
+    session['role'] = user['role']
+    session['full_name'] = user.get('full_name', user['username'])
+    session['auth_token'] = auth_token
+    return auth_token
+
+
+def _request_token():
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        return auth_header[7:].strip()
+    return None
 
 # Initialize database on startup
 init_db()
@@ -138,10 +189,7 @@ def login():
 
         user = verify_user(username, password)
         if user:
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            session['role'] = user['role']
-            session['full_name'] = user.get('full_name', user['username'])
+            _store_session_for_user(user)
             if remember:
                 session.permanent = True
             update_last_login(user['id'])
@@ -416,13 +464,37 @@ def analyst_reclassify(log_id):
 
 @app.route('/api/session_status', methods=['GET'])
 def session_status():
+    token = _request_token()
+    if token:
+        user = verify_auth_token(token)
+        if user:
+            return jsonify({
+                'authenticated': True,
+                'user_id': user['id'],
+                'username': user['username'],
+                'role': user['role'],
+                'full_name': user.get('full_name', user['username']),
+                'auth_token': token
+            })
+
     if 'user_id' in session:
+        user = get_user_by_id(session['user_id'])
+        if user:
+            auth_token = session.get('auth_token') or issue_auth_token(user)
+            session['auth_token'] = auth_token
+            session['username'] = user['username']
+            session['role'] = user['role']
+            session['full_name'] = user.get('full_name', user['username'])
+            return jsonify({
+                'authenticated': True,
+                'user_id': user['id'],
+                'username': user['username'],
+                'role': user['role'],
+                'full_name': user.get('full_name', user['username']),
+                'auth_token': auth_token
+            })
         return jsonify({
-            'authenticated': True,
-            'user_id': session['user_id'],
-            'username': session['username'],
-            'role': session['role'],
-            'full_name': session.get('full_name', session['username'])
+            'authenticated': False
         })
     return jsonify({'authenticated': False})
 
@@ -433,15 +505,24 @@ def api_login():
         return jsonify({'error': 'Missing credentials'}), 400
     user = verify_user(data['username'], data['password'])
     if user:
+        auth_token = _store_session_for_user(user)
         update_last_login(user['id'])
         return jsonify({
             'success': True,
             'user_id': user['id'],
             'username': user['username'],
-            'role': user['role']
+            'role': user['role'],
+            'full_name': user.get('full_name', user['username']),
+            'auth_token': auth_token
         })
     else:
         return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+
+
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    session.clear()
+    return jsonify({'success': True})
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
@@ -473,6 +554,13 @@ def check_url():
 
     url = data['url']
     user_id = data.get('user_id')
+    token = _request_token()
+    if token:
+        token_user = verify_auth_token(token)
+        if token_user:
+            user_id = token_user['id']
+    elif 'user_id' in session:
+        user_id = session['user_id']
     domain = extract_domain(url)
     ip_address = request.remote_addr
 

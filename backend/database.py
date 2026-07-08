@@ -1,14 +1,69 @@
 import os
 import json
 import uuid
+import hashlib
 from datetime import datetime, timedelta
 import psycopg2
 from psycopg2.extras import DictCursor
+from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Fetch the database URL from the environment (defaulting to a local string if needed)
-# Render will automatically supply this as DATABASE_URL
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://localhost/dnsguard')
+try:
+    import bcrypt
+except ImportError:
+    bcrypt = None
+
+load_dotenv()
+
+# Fetch the database URL from the environment, preferring the common PostgreSQL names.
+# Render will automatically supply this as DATABASE_URL.
+DATABASE_URL = (
+    os.environ.get('DATABASE_URL')
+    or os.environ.get('POSTGRES_URL')
+    or os.environ.get('DATABASE_URL_INTERNAL')
+    or 'postgresql://localhost/dnsguard'
+)
+
+
+def _password_hash_is_current(stored_hash):
+    return isinstance(stored_hash, str) and stored_hash.startswith(('scrypt:', 'pbkdf2:'))
+
+
+def _legacy_password_matches(stored_hash, password):
+    if not stored_hash:
+        return False
+
+    if stored_hash == password:
+        return True
+
+    sha256_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    if stored_hash == sha256_hash:
+        return True
+
+    if bcrypt and stored_hash.startswith(('$2a$', '$2b$', '$2y$')):
+        try:
+            return bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
+        except Exception:
+            return False
+
+    return False
+
+
+def verify_password(stored_hash, password):
+    if not stored_hash:
+        return False
+
+    try:
+        if check_password_hash(stored_hash, password):
+            return True
+    except Exception:
+        pass
+
+    return _legacy_password_matches(stored_hash, password)
+
+
+def normalize_password_hash(password):
+    return generate_password_hash(password)
 
 def get_db_connection():
     # Use DictCursor so rows behave like dictionaries (similar to sqlite3.Row)
@@ -142,9 +197,9 @@ def init_db():
                 )
         else:
             # Force update demo accounts in case they were broken by previous double hashing logic
-            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'admin'", (generate_password_hash('admin123'),))
-            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'analyst'", (generate_password_hash('analyst123'),))
-            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'viewer'", (generate_password_hash('viewer123'),))
+            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'admin'", (normalize_password_hash('admin123'),))
+            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'analyst'", (normalize_password_hash('analyst123'),))
+            cursor.execute("UPDATE Users SET password_hash = %s WHERE username = 'viewer'", (normalize_password_hash('viewer123'),))
 
         conn.commit()
         conn.close()
@@ -441,9 +496,15 @@ def verify_user(username, password):
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM Users WHERE username = %s AND is_active = TRUE', (username,))
         user = cursor.fetchone()
-        conn.close()
-        if user and check_password_hash(user['password_hash'], password):
+        if user and verify_password(user['password_hash'], password):
+            if not _password_hash_is_current(user['password_hash']):
+                cursor.execute('UPDATE Users SET password_hash = %s WHERE id = %s', (normalize_password_hash(password), user['id']))
+                conn.commit()
+                cursor.execute('SELECT * FROM Users WHERE id = %s', (user['id'],))
+                user = cursor.fetchone()
+            conn.close()
             return dict(user)
+        conn.close()
         return None
     except Exception as e:
         print(f"Error verifying user: {e}")

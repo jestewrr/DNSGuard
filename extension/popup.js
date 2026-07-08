@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Listen for storage changes to dynamically sync the UI when website state changes
     chrome.storage.onChanged.addListener(function(changes, namespace) {
-        if (changes.user_id || changes.username) {
+        if (changes.user_id || changes.username || changes.auth_token) {
             updateUIFromStorage();
         }
     });
@@ -31,14 +31,17 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function updateUIFromStorage() {
-    chrome.storage.local.get(['user_id', 'username', 'backend_url'], function(result) {
+    chrome.storage.local.get(['user_id', 'username', 'backend_url', 'auth_token'], function(result) {
         const userId = result.user_id;
         const username = result.username;
         const currentBackend = result.backend_url || "https://dnsguard-backend.onrender.com";
+        const authToken = result.auth_token || null;
 
         if (userId) {
             // Verify if the session is still active on the server
-            fetch(`${currentBackend}/api/session_status`)
+            fetch(`${currentBackend}/api/session_status`, {
+                headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+            })
                 .then(r => r.json())
                 .then(data => {
                     if (data.authenticated) {
@@ -87,6 +90,7 @@ function handleLogin() {
                     user_id: data.user_id, 
                     username: data.username, 
                     role: data.role,
+                    auth_token: data.auth_token || null,
                     backend_url: currentBackend
                 }, function() {
                     errEl.style.display = 'none';
@@ -105,17 +109,24 @@ function handleLogin() {
 }
 
 function handleLogout() {
-    chrome.storage.local.get(['backend_url'], function(result) {
+    chrome.storage.local.get(['backend_url', 'auth_token'], function(result) {
         const currentBackend = result.backend_url || "https://dnsguard-backend.onrender.com";
         // Optionally notify the backend of logout, but local logout is key
-        chrome.storage.local.remove(['user_id', 'username', 'role'], function() {
-            showLoginSection();
+        const authToken = result.auth_token || null;
+        const headers = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+        fetch(`${currentBackend}/api/logout`, {
+            method: 'POST',
+            headers: headers
+        }).finally(() => {
+            chrome.storage.local.remove(['user_id', 'username', 'role', 'auth_token'], function() {
+                showLoginSection();
+            });
         });
     });
 }
 
 function forceLocalLogout() {
-    chrome.storage.local.remove(['user_id', 'username', 'role'], function() {
+    chrome.storage.local.remove(['user_id', 'username', 'role', 'auth_token'], function() {
         showLoginSection();
     });
 }
@@ -143,9 +154,16 @@ function checkCurrentTab(userId, currentBackend) {
             return;
         }
 
-        fetch(`${currentBackend}/api/check_url`, {
+        chrome.storage.local.get(['auth_token'], function(result) {
+            const authToken = result.auth_token || null;
+            const headers = { 'Content-Type': 'application/json' };
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            fetch(`${currentBackend}/api/check_url`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify({ url: currentUrl, user_id: userId })
         })
         .then(response => response.json())
@@ -160,6 +178,7 @@ function checkCurrentTab(userId, currentBackend) {
         .catch(err => {
             console.error("Error connecting to backend", err);
             updateStatus("Offline", "unknown");
+        });
         });
     });
 }
