@@ -63,7 +63,7 @@
         <div class="p-4 border-t border-white/5">
             <div class="flex items-center gap-3 px-3">
                 <div class="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-sm font-bold">
-                    {{ full_name[0] | upper }}
+                    {{ full_name[0] | upper if full_name else 'U' }}
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-white truncate">{{ full_name }}</p>
@@ -272,7 +272,7 @@
                             </thead>
                             <tbody class="divide-y divide-white/5">
                                 {% for log in logs %}
-                                <tr class="hover:bg-white/[0.02] transition cursor-pointer" data-status="{{ log.status }}" data-breakdown='{{ log.breakdown | tojson | forceescape if log.breakdown else "{}" }}'>
+                                <tr class="hover:bg-white/[0.02] transition cursor-pointer" data-status="{{ log.status }}" data-breakdown='{{ (log.breakdown | tojson | forceescape) if log.breakdown else "{}" }}'>
                                     <td class="px-4 py-3">
                                         <div class="font-medium text-white truncate max-w-[200px]" title="{{ log.url }}">{{ log.domain }}
                                         {% if log.breakdown and log.breakdown.get('reclassified_by_analyst') %}
