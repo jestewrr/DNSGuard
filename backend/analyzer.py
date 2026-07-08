@@ -248,8 +248,8 @@ def analyze_url(url):
     reputation = check_domain_reputation(url)
     breakdown['reputation'] = {
         "status": "Passed" if reputation == "Safe" else "Failed",
-        "message": "Google Safe Browsing classifies this domain as clean." if reputation == "Safe" else f"Reputation service warning: {reputation}",
-        "provider": "Google Safe Browsing",
+        "message": "Reputation analysis classifies this domain as clean." if reputation == "Safe" else f"Reputation service warning: {reputation}",
+        "provider": "Reputation Analysis",
         "confidence": 98 if reputation == "Safe" else 15
     }
 

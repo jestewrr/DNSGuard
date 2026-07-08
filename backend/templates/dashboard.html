@@ -449,7 +449,7 @@ function showBreakdown(row) {
                     if (check.key === 'blacklist' && fail) richMsg = 'Failed — Domain was found in known malicious databases.';
                     if (check.key === 'pattern' && !fail) richMsg = 'Passed — No high entropy patterns, suspicious keywords, or abnormal subdomain behavior detected.';
                     if (check.key === 'pattern' && fail) richMsg = 'Failed — Suspicious URL structure detected (high entropy, excessive subdomains, or phishing keywords).';
-                    if (check.key === 'reputation' && !fail) richMsg = 'Safe — Google Safe Browsing and reputation analysis classify this domain as clean.';
+                    if (check.key === 'reputation' && !fail) richMsg = 'Safe — Reputation analysis classifies this domain as clean.';
                     if (check.key === 'reputation' && fail) richMsg = 'Warning — Reputation services flagged potential risks for this domain.';
                     if (check.key === 'ad_detection' && !fail) richMsg = 'Passed — No association with intrusive advertising or popup networks.';
                     if (check.key === 'ad_detection' && fail) richMsg = 'Failed — Domain matches known intrusive advertising or popup networks.';
