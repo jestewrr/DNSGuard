@@ -8,15 +8,17 @@ function checkCurrentTab() {
         let currentUrl = tabs[0].url;
         
         // Parse blocked URL from the block page if active
-        if (currentUrl && currentUrl.includes("/block.html?url=")) {
+        if (currentUrl) {
             try {
-                const urlParams = new URLSearchParams(currentUrl.split('?')[1]);
-                const blockedUrl = urlParams.get('url');
-                if (blockedUrl) {
-                    currentUrl = blockedUrl;
+                const parsedUrl = new URL(currentUrl);
+                if (parsedUrl.protocol === "chrome-extension:" && parsedUrl.pathname.endsWith("/block.html")) {
+                    const blockedUrl = parsedUrl.searchParams.get("url");
+                    if (blockedUrl) {
+                        currentUrl = blockedUrl;
+                    }
                 }
             } catch (e) {
-                console.error("Failed to parse blocked URL", e);
+                console.error("Error parsing tab URL", e);
             }
         }
 
