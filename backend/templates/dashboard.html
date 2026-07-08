@@ -36,8 +36,6 @@
 
         <!-- Top Nav -->
         {% include 'header.html' %}
-
-
         <div class="p-6">
 
             <!-- Flash Messages -->
@@ -54,6 +52,20 @@
               {% endif %}
             {% endwith %}
 
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-white">Security Dashboard</h1>
+                    <p class="text-xs text-slate-400 mt-1">Real-time DNS traffic analysis and threat prevention.</p>
+                </div>
+                <!-- Date Range Filter -->
+                <div class="flex items-center gap-2 bg-white/5 border border-white/10 p-1 rounded-xl">
+                    <button onclick="setDateRange('daily')" id="btn-daily" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white">Daily</button>
+                    <button onclick="setDateRange('weekly')" id="btn-weekly" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white">Weekly</button>
+                    <button onclick="setDateRange('monthly')" id="btn-monthly" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white">Monthly</button>
+                    <button onclick="setDateRange('yearly')" id="btn-yearly" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white">Yearly</button>
+                </div>
+            </div>
+
             <!-- Stat Cards -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div class="glass rounded-2xl p-5 fade-up fade-up-1">
@@ -63,10 +75,8 @@
                             <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
                         </div>
                     </div>
-                    <p class="text-3xl font-bold text-white">{{ stats.total }}</p>
-                    <p class="text-xs mt-2 {% if stats_yesterday.total > 0 %}text-green-400{% else %}text-slate-500{% endif %}">
-                        {% if stats_yesterday.total > 0 %}+{{ stats_yesterday.total }} from yesterday{% else %}No activity yesterday{% endif %}
-                    </p>
+                    <p class="text-3xl font-bold text-white" id="kpi-total-val">—</p>
+                    <p class="text-xs mt-2 text-slate-500" id="kpi-total-comp">Loading...</p>
                 </div>
                 <div class="glass rounded-2xl p-5 fade-up fade-up-2">
                     <div class="flex items-center justify-between mb-3">
@@ -75,10 +85,8 @@
                             <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                         </div>
                     </div>
-                    <p class="text-3xl font-bold text-green-400">{{ stats.safe }}</p>
-                    <p class="text-xs mt-2 {% if stats.total > 0 %}text-green-400{% else %}text-slate-500{% endif %}">
-                        {% if stats.total > 0 %}{{ ((stats.safe / stats.total) * 100) | round(1) }}% of total{% else %}—{% endif %}
-                    </p>
+                    <p class="text-3xl font-bold text-green-400" id="kpi-safe-val">—</p>
+                    <p class="text-xs mt-2 text-slate-500" id="kpi-safe-comp">Loading...</p>
                 </div>
                 <div class="glass rounded-2xl p-5 fade-up fade-up-3">
                     <div class="flex items-center justify-between mb-3">
@@ -87,10 +95,8 @@
                             <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
                         </div>
                     </div>
-                    <p class="text-3xl font-bold text-yellow-400">{{ stats.suspicious }}</p>
-                    <p class="text-xs mt-2 {% if stats_yesterday.suspicious > 0 %}text-yellow-400{% else %}text-slate-500{% endif %}">
-                        {% if stats_yesterday.suspicious > 0 %}+{{ stats_yesterday.suspicious }} from yesterday{% else %}None yesterday{% endif %}
-                    </p>
+                    <p class="text-3xl font-bold text-yellow-400" id="kpi-suspicious-val">—</p>
+                    <p class="text-xs mt-2 text-slate-500" id="kpi-suspicious-comp">Loading...</p>
                 </div>
                 <div class="glass rounded-2xl p-5 fade-up fade-up-4">
                     <div class="flex items-center justify-between mb-3">
@@ -99,10 +105,8 @@
                             <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
                         </div>
                     </div>
-                    <p class="text-3xl font-bold text-red-400">{{ stats.malicious }}</p>
-                    <p class="text-xs mt-2 {% if stats_yesterday.malicious > 0 %}text-red-400{% else %}text-slate-500{% endif %}">
-                        {% if stats_yesterday.malicious > 0 %}+{{ stats_yesterday.malicious }} from yesterday{% else %}None yesterday{% endif %}
-                    </p>
+                    <p class="text-3xl font-bold text-red-400" id="kpi-blocked-val">—</p>
+                    <p class="text-xs mt-2 text-slate-500" id="kpi-blocked-comp">Loading...</p>
                 </div>
             </div>
 
@@ -121,28 +125,14 @@
                 <div class="lg:col-span-2 grid md:grid-cols-2 gap-6">
                     <div class="glass rounded-2xl p-6">
                         <h3 class="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">Most Visited Websites</h3>
-                        <ul class="space-y-3">
-                            {% for d in analytics.top_domains %}
-                            <li class="flex items-center justify-between text-sm">
-                                <span class="text-white truncate" title="{{ d.domain }}">{{ d.domain }}</span>
-                                <span class="text-cyan-400 font-medium bg-cyan-500/10 px-2 py-0.5 rounded">{{ d.count }}</span>
-                            </li>
-                            {% else %}
-                            <li class="text-slate-500 text-sm">No data available.</li>
-                            {% endfor %}
+                        <ul class="space-y-3" id="topDomainsList">
+                            <!-- Injected dynamically by JS -->
                         </ul>
                     </div>
                     <div class="glass rounded-2xl p-6">
                         <h3 class="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">Top Active Users</h3>
-                        <ul class="space-y-3">
-                            {% for u in analytics.top_users %}
-                            <li class="flex items-center justify-between text-sm">
-                                <span class="text-white">@{{ u.username }}</span>
-                                <span class="text-purple-400 font-medium bg-purple-500/10 px-2 py-0.5 rounded">{{ u.count }} reqs</span>
-                            </li>
-                            {% else %}
-                            <li class="text-slate-500 text-sm">No data available.</li>
-                            {% endfor %}
+                        <ul class="space-y-3" id="topUsersList">
+                            <!-- Injected dynamically by JS -->
                         </ul>
                     </div>
                 </div>
@@ -186,72 +176,33 @@
                                     <th class="px-4 py-3">Action</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-white/5">
-                                {% for log in logs %}
-                                <tr class="hover:bg-white/[0.02] transition cursor-pointer" data-status="{{ log.status }}" data-breakdown='{{ (log.breakdown | tojson | forceescape) if log.breakdown else "{}" }}'>
-                                    <td class="px-4 py-3">
-                                        <div class="font-medium text-white truncate max-w-[200px]" title="{{ log.url }}">{{ log.domain }}
-                                        {% if log.breakdown and log.breakdown.get('reclassified_by_analyst') %}
-                                            <span title="Reclassified by Analyst" class="ml-1 text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/30">Edited</span>
-                                        {% endif %}
-                                        </div>
-                                    </td>
-                                    {% if role != 'Viewer/User' %}
-                                    <td class="px-4 py-3 hidden sm:table-cell text-slate-400">
-                                        {% if log.username %}@{{ log.username }}{% else %}<span class="text-slate-600">Guest/Unknown</span>{% endif %}
-                                    </td>
-                                    {% endif %}
-                                    <td class="px-4 py-3">
-                                        {% if log.status == 'Safe' %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">Safe</span>
-                                        {% elif log.status == 'Suspicious' %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Suspicious</span>
-                                        {% else %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Malicious</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="px-4 py-3 hidden md:table-cell">
-                                        {% if log.status == 'Safe' %}
-                                        <div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width:15%"></div></div>
-                                        {% elif log.status == 'Suspicious' %}
-                                        <div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-yellow-500 h-1.5 rounded-full" style="width:55%"></div></div>
-                                        {% else %}
-                                        <div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-red-500 h-1.5 rounded-full" style="width:90%"></div></div>
-                                        {% endif %}
-                                    </td>
-                                    <td class="px-4 py-3 hidden sm:table-cell text-slate-500 text-xs">{{ log.timestamp.split('.')[0] if log.timestamp is string else log.timestamp }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-2">
-                                            <button onclick="showBreakdown(this.closest('tr'))" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium">Details</button>
-                                            {% if role in ('Security Analyst', 'Administrator') %}
-                                            <div class="relative inline-block">
-                                                <button onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-amber-400 hover:text-amber-300 text-xs font-medium">Reclassify ▾</button>
-                                                <div class="hidden absolute right-0 mt-1 w-32 bg-slate-800 border border-white/10 rounded-lg shadow-xl z-10">
-                                                    <form method="POST" action="/analyst/reclassify/{{ log.id }}">
-                                                        <input type="hidden" name="status" value="Safe">
-                                                        <button type="submit" class="w-full text-left px-3 py-2 text-xs text-green-400 hover:bg-white/5">✓ Safe</button>
-                                                    </form>
-                                                    <form method="POST" action="/analyst/reclassify/{{ log.id }}">
-                                                        <input type="hidden" name="status" value="Suspicious">
-                                                        <button type="submit" class="w-full text-left px-3 py-2 text-xs text-yellow-400 hover:bg-white/5">⚠ Suspicious</button>
-                                                    </form>
-                                                    <form method="POST" action="/analyst/reclassify/{{ log.id }}">
-                                                        <input type="hidden" name="status" value="Malicious">
-                                                        <button type="submit" class="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5">✕ Malicious</button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr><td colspan="5" class="px-4 py-8 text-center text-slate-600">No activity recorded yet.</td></tr>
-                                {% endfor %}
+                            <tbody class="divide-y divide-white/5" id="logsTableBody">
+                                <!-- Injected dynamically by JS -->
                             </tbody>
                         </table>
                     </div>
+                    
+                    <!-- Pagination Controls -->
+                    <div class="flex items-center justify-between border-t border-white/5 px-4 py-3 sm:px-6 mt-4" id="paginationContainer">
+                        <div class="flex flex-1 justify-between sm:hidden">
+                            <button onclick="changePage(currentPage - 1)" class="relative inline-flex items-center rounded-md border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-white/10 transition-colors">Previous</button>
+                            <button onclick="changePage(currentPage + 1)" class="relative ml-3 inline-flex items-center rounded-md border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-white/10 transition-colors">Next</button>
+                        </div>
+                        <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-xs text-slate-400" id="paginationInfo">
+                                    Showing <span class="font-medium text-white" id="paginationStart">0</span> to <span class="font-medium text-white" id="paginationEnd">0</span> of <span class="font-medium text-white" id="paginationTotal">0</span> results
+                                </p>
+                            </div>
+                            <div>
+                                <nav class="isolate inline-flex -space-x-px rounded-lg shadow-sm" aria-label="Pagination" id="paginationPages">
+                                    <!-- Page numbers will be dynamically injected here -->
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+            </div>
             </div>
 
         </div>
@@ -271,21 +222,443 @@
     </div>
 </div>
 
-<!-- Chart Data -->
-<div id="chart-data" data-safe="{{ stats.safe }}" data-suspicious="{{ stats.suspicious }}" data-malicious="{{ stats.malicious }}" style="display:none"></div>
+<!-- JSON Logs Data -->
+<script id="logs-data" type="application/json">
+  {{ logs_json | safe }}
+</script>
 
 <script>
-// Chart
+const allLogs = JSON.parse(document.getElementById('logs-data').textContent);
+const userRole = "{{ role }}";
+
+let currentRange = 'weekly'; // Default to Weekly so logs from yesterday are shown automatically
+let currentPage = 1;
+const rowsPerPage = 10;
+
+// Date Range helper functions
+function getDateRangeLimits(range) {
+    const now = new Date();
+    let start, end;
+    
+    if (range === 'daily') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    } else if (range === 'weekly') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    } else if (range === 'monthly') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    } else if (range === 'yearly') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 364);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    }
+    return { start, end };
+}
+
+function getPreviousDateRangeLimits(range) {
+    const now = new Date();
+    let start, end;
+    
+    if (range === 'daily') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (range === 'weekly') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    } else if (range === 'monthly') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 59);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+    } else if (range === 'yearly') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 729);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 364);
+    }
+    return { start, end };
+}
+
+function getStatsForPeriod(logs, start, end) {
+    const stats = { total: 0, safe: 0, suspicious: 0, malicious: 0 };
+    logs.forEach(l => {
+        const d = new Date(l.timestamp);
+        if (d >= start && d < end) {
+            stats.total++;
+            const status = l.status.toLowerCase();
+            if (status === 'safe') stats.safe++;
+            else if (status === 'suspicious') stats.suspicious++;
+            else if (status === 'malicious') stats.malicious++;
+        }
+    });
+    return stats;
+}
+
+function getPeriodName(range) {
+    if (range === 'daily') return 'day';
+    if (range === 'weekly') return 'week';
+    if (range === 'monthly') return 'month';
+    if (range === 'yearly') return 'year';
+    return 'period';
+}
+
+// Main Update Dashboard function
+function updateDashboard() {
+    const limits = getDateRangeLimits(currentRange);
+    const prevLimits = getPreviousDateRangeLimits(currentRange);
+    
+    // Compute current period statistics
+    const currentStats = getStatsForPeriod(allLogs, limits.start, limits.end);
+    const prevStats = getStatsForPeriod(allLogs, prevLimits.start, prevLimits.end);
+    
+    // Update KPI Card values
+    // 1. Total Requests
+    document.getElementById('kpi-total-val').textContent = currentStats.total;
+    const totalComp = document.getElementById('kpi-total-comp');
+    if (prevStats.total > 0) {
+        totalComp.textContent = `+${prevStats.total} from previous ${getPeriodName(currentRange)}`;
+        totalComp.className = "text-xs mt-2 text-green-400";
+    } else {
+        totalComp.textContent = `No activity in previous ${getPeriodName(currentRange)}`;
+        totalComp.className = "text-xs mt-2 text-slate-500";
+    }
+    
+    // 2. Safe
+    document.getElementById('kpi-safe-val').textContent = currentStats.safe;
+    const safeComp = document.getElementById('kpi-safe-comp');
+    if (currentStats.total > 0) {
+        safeComp.textContent = `${((currentStats.safe / currentStats.total) * 100).toFixed(1)}% of total`;
+        safeComp.className = "text-xs mt-2 text-green-400";
+    } else {
+        safeComp.textContent = "—";
+        safeComp.className = "text-xs mt-2 text-slate-500";
+    }
+    
+    // 3. Suspicious
+    document.getElementById('kpi-suspicious-val').textContent = currentStats.suspicious;
+    const suspComp = document.getElementById('kpi-suspicious-comp');
+    if (prevStats.suspicious > 0) {
+        suspComp.textContent = `+${prevStats.suspicious} from previous ${getPeriodName(currentRange)}`;
+        suspComp.className = "text-xs mt-2 text-yellow-400";
+    } else {
+        suspComp.textContent = `None in previous ${getPeriodName(currentRange)}`;
+        suspComp.className = "text-xs mt-2 text-slate-500";
+    }
+    
+    // 4. Blocked
+    document.getElementById('kpi-blocked-val').textContent = currentStats.malicious;
+    const blockComp = document.getElementById('kpi-blocked-comp');
+    if (prevStats.malicious > 0) {
+        blockComp.textContent = `+${prevStats.malicious} from previous ${getPeriodName(currentRange)}`;
+        blockComp.className = "text-xs mt-2 text-red-400";
+    } else {
+        blockComp.textContent = `None in previous ${getPeriodName(currentRange)}`;
+        blockComp.className = "text-xs mt-2 text-slate-500";
+    }
+    
+    // Update Chart data
+    if (window.myChart) {
+        window.myChart.data.datasets[0].data = [currentStats.safe, currentStats.suspicious, currentStats.malicious];
+        window.myChart.update();
+    }
+    
+    // Update Most Visited Websites & Top Active Users if admin/analyst
+    updateAnalyticsBlocks(limits.start, limits.end);
+    
+    // Render Table
+    renderTableAndPagination();
+}
+
+function updateAnalyticsBlocks(start, end) {
+    const topDomainsList = document.getElementById('topDomainsList');
+    const topUsersList = document.getElementById('topUsersList');
+    if (!topDomainsList || !topUsersList) return;
+    
+    const domainCounts = {};
+    const userCounts = {};
+    
+    allLogs.forEach(l => {
+        const d = new Date(l.timestamp);
+        if (d >= start && d < end) {
+            domainCounts[l.domain] = (domainCounts[l.domain] || 0) + 1;
+            if (l.username) {
+                userCounts[l.username] = (userCounts[l.username] || 0) + 1;
+            }
+        }
+    });
+    
+    const topDomains = Object.entries(domainCounts)
+        .map(([domain, count]) => ({ domain, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+        
+    const topUsers = Object.entries(userCounts)
+        .map(([username, count]) => ({ username, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+        
+    // Render top domains
+    if (topDomains.length === 0) {
+        topDomainsList.innerHTML = '<li class="text-slate-500 text-sm">No data available.</li>';
+    } else {
+        topDomainsList.innerHTML = topDomains.map(d => `
+            <li class="flex items-center justify-between text-sm">
+                <span class="text-white truncate max-w-[200px]" title="${d.domain}">${d.domain}</span>
+                <span class="text-cyan-400 font-medium bg-cyan-500/10 px-2 py-0.5 rounded">${d.count}</span>
+            </li>
+        `).join('');
+    }
+    
+    // Render top users
+    if (topUsers.length === 0) {
+        topUsersList.innerHTML = '<li class="text-slate-500 text-sm">No data available.</li>';
+    } else {
+        topUsersList.innerHTML = topUsers.map(u => `
+            <li class="flex items-center justify-between text-sm">
+                <span class="text-white">@${u.username}</span>
+                <span class="text-purple-400 font-medium bg-purple-500/10 px-2 py-0.5 rounded">${u.count} reqs</span>
+            </li>
+        `).join('');
+    }
+}
+
+function getFilteredLogs() {
+    const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const f = document.getElementById('statusFilter')?.value || 'all';
+    
+    // Get start/end for date range
+    const ranges = getDateRangeLimits(currentRange);
+    const start = ranges.start;
+    const end = ranges.end;
+    
+    return allLogs.filter(l => {
+        const d = new Date(l.timestamp);
+        const inDateRange = d >= start && d < end;
+        if (!inDateRange) return false;
+        
+        const matchesStatus = f === 'all' || l.status === f;
+        if (!matchesStatus) return false;
+        
+        const matchesSearch = l.domain.toLowerCase().includes(q) || l.url.toLowerCase().includes(q);
+        return matchesSearch;
+    });
+}
+
+function renderTableAndPagination() {
+    const tbody = document.getElementById('logsTableBody');
+    if (!tbody) return;
+    
+    const filtered = getFilteredLogs();
+    const totalItems = filtered.length;
+    const totalPages = Math.ceil(totalItems / rowsPerPage) || 1;
+    
+    // Clamp currentPage
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    
+    const startIdx = (currentPage - 1) * rowsPerPage;
+    const endIdx = Math.min(startIdx + rowsPerPage, totalItems);
+    
+    const pageItems = filtered.slice(startIdx, endIdx);
+    
+    // Render table rows
+    if (pageItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${userRole === 'Viewer/User' ? 4 : 5}" class="px-4 py-8 text-center text-slate-600">No activity recorded yet.</td></tr>`;
+    } else {
+        let html = '';
+        pageItems.forEach(log => {
+            const hasAnalystEdit = log.breakdown && log.breakdown.reclassified_by_analyst;
+            const bdEscaped = JSON.stringify(log.breakdown || {}).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+            
+            // Format timestamp (convert ISO to readable date)
+            let formattedTime = log.timestamp;
+            if (formattedTime) {
+                const dateObj = new Date(formattedTime);
+                // format as YYYY-MM-DD HH:MM:SS in local timezone
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const hours = String(dateObj.getHours()).padStart(2, '0');
+                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                const seconds = String(dateObj.getSeconds()).padStart(2, '0');
+                formattedTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            }
+            
+            let statusBadge = '';
+            if (log.status === 'Safe') {
+                statusBadge = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">Safe</span>';
+            } else if (log.status === 'Suspicious') {
+                statusBadge = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Suspicious</span>';
+            } else {
+                statusBadge = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Malicious</span>';
+            }
+            
+            let threatLevel = '';
+            if (log.status === 'Safe') {
+                threatLevel = '<div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width:15%"></div></div>';
+            } else if (log.status === 'Suspicious') {
+                threatLevel = '<div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-yellow-500 h-1.5 rounded-full" style="width:55%"></div></div>';
+            } else {
+                threatLevel = '<div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-red-500 h-1.5 rounded-full" style="width:90%"></div></div>';
+            }
+            
+            let userCell = '';
+            if (userRole !== 'Viewer/User') {
+                const userDisplay = log.username ? `@${log.username}` : '<span class="text-slate-600">Guest/Unknown</span>';
+                userCell = `<td class="px-4 py-3 hidden sm:table-cell text-slate-400">${userDisplay}</td>`;
+            }
+            
+            let actionDropdown = '';
+            if (userRole === 'Security Analyst' || userRole === 'Administrator') {
+                actionDropdown = `
+                    <div class="relative inline-block dropdown-container">
+                        <button onclick="toggleDropdown(this)" class="text-amber-400 hover:text-amber-300 text-xs font-medium">Reclassify ▾</button>
+                        <div class="hidden dropdown-menu absolute right-0 mt-1 w-32 bg-slate-800 border border-white/10 rounded-lg shadow-xl z-10">
+                            <form method="POST" action="/analyst/reclassify/${log.id}">
+                                <input type="hidden" name="status" value="Safe">
+                                <button type="submit" class="w-full text-left px-3 py-2 text-xs text-green-400 hover:bg-white/5">✓ Safe</button>
+                            </form>
+                            <form method="POST" action="/analyst/reclassify/${log.id}">
+                                <input type="hidden" name="status" value="Suspicious">
+                                <button type="submit" class="w-full text-left px-3 py-2 text-xs text-yellow-400 hover:bg-white/5">⚠ Suspicious</button>
+                            </form>
+                            <form method="POST" action="/analyst/reclassify/${log.id}">
+                                <input type="hidden" name="status" value="Malicious">
+                                <button type="submit" class="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5">✕ Malicious</button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `
+                <tr class="hover:bg-white/[0.02] transition cursor-pointer" data-status="${log.status}" data-breakdown='${bdEscaped}'>
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-white truncate max-w-[200px]" title="${log.url}">${log.domain}
+                        ${hasAnalystEdit ? '<span title="Reclassified by Analyst" class="ml-1 text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/30">Edited</span>' : ''}
+                        </div>
+                    </td>
+                    ${userCell}
+                    <td class="px-4 py-3">${statusBadge}</td>
+                    <td class="px-4 py-3 hidden md:table-cell">${threatLevel}</td>
+                    <td class="px-4 py-3 hidden sm:table-cell text-slate-500 text-xs">${formattedTime}</td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <button onclick="showBreakdown(this.closest('tr'))" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium">Details</button>
+                            ${actionDropdown}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    }
+    
+    // Update pagination controls
+    document.getElementById('paginationStart').textContent = totalItems === 0 ? 0 : startIdx + 1;
+    document.getElementById('paginationEnd').textContent = endIdx;
+    document.getElementById('paginationTotal').textContent = totalItems;
+    
+    const paginationPages = document.getElementById('paginationPages');
+    if (!paginationPages) return;
+    
+    let pagesHtml = '';
+    
+    // Previous button
+    const prevDisabled = currentPage === 1;
+    pagesHtml += `
+        <button onclick="${prevDisabled ? '' : 'changePage(currentPage - 1)'}" 
+           class="relative inline-flex items-center rounded-l-lg border border-white/10 bg-white/5 px-2 py-2 text-xs font-medium text-slate-400 hover:bg-white/10 transition-colors ${prevDisabled ? 'opacity-50 cursor-not-allowed' : ''}">
+            <span class="sr-only">Previous</span>
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+            </svg>
+        </button>
+    `;
+    
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+    if (endPage - startPage + 1 < maxPagesToShow) {
+        startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+    
+    for (let p = startPage; p <= endPage; p++) {
+        const isCurrent = p === currentPage;
+        pagesHtml += `
+            <button onclick="changePage(${p})" 
+               class="relative inline-flex items-center border border-white/10 px-3 py-2 text-xs font-medium transition-colors
+               ${isCurrent ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-slate-300 hover:bg-white/10'}">
+                ${p}
+            </button>
+        `;
+    }
+    
+    // Next button
+    const nextDisabled = currentPage === totalPages;
+    pagesHtml += `
+        <button onclick="${nextDisabled ? '' : 'changePage(currentPage + 1)'}" 
+           class="relative inline-flex items-center rounded-r-lg border border-white/10 bg-white/5 px-2 py-2 text-xs font-medium text-slate-400 hover:bg-white/10 transition-colors ${nextDisabled ? 'opacity-50 cursor-not-allowed' : ''}">
+            <span class="sr-only">Next</span>
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+            </svg>
+        </button>
+    `;
+    
+    paginationPages.innerHTML = pagesHtml;
+}
+
+function changePage(p) {
+    currentPage = p;
+    renderTableAndPagination();
+}
+
+function setDateRange(range) {
+    currentRange = range;
+    
+    // Update button active states
+    ['daily', 'weekly', 'monthly', 'yearly'].forEach(r => {
+        const btn = document.getElementById('btn-' + r);
+        if (btn) {
+            if (r === range) {
+                btn.classList.add('bg-cyan-500', 'text-slate-950', 'shadow-lg', 'shadow-cyan-500/20');
+                btn.classList.remove('text-slate-400', 'hover:text-white');
+            } else {
+                btn.classList.remove('bg-cyan-500', 'text-slate-950', 'shadow-lg', 'shadow-cyan-500/20');
+                btn.classList.add('text-slate-400', 'hover:text-white');
+            }
+        }
+    });
+    
+    currentPage = 1;
+    updateDashboard();
+}
+
+function toggleDropdown(btn) {
+    // Close other dropdowns
+    document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        if (menu !== btn.nextElementSibling) {
+            menu.classList.add('hidden');
+        }
+    });
+    btn.nextElementSibling.classList.toggle('hidden');
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.dropdown-container')) {
+        document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+    }
+});
+
+// Chart initialization and updates
 document.addEventListener("DOMContentLoaded", function() {
     const chartEl = document.getElementById('threatChart');
     if (chartEl) {
-        const d = document.getElementById('chart-data');
-        new Chart(chartEl.getContext('2d'), {
+        window.myChart = new Chart(chartEl.getContext('2d'), {
             type: 'doughnut',
             data: {
                 labels: ['Safe', 'Suspicious', 'Malicious'],
                 datasets: [{
-                    data: [parseInt(d.dataset.safe)||0, parseInt(d.dataset.suspicious)||0, parseInt(d.dataset.malicious)||0],
+                    data: [0, 0, 0],
                     backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
                     borderWidth: 0,
                     borderRadius: 4
@@ -314,18 +687,19 @@ document.addEventListener("DOMContentLoaded", function() {
                     var width = chart.width,
                         height = chart.height,
                         ctx = chart.ctx;
-
+ 
                     ctx.restore();
                     var fontSize = (height / 114).toFixed(2);
                     ctx.font = "bold " + fontSize + "em Inter";
                     ctx.textBaseline = "middle";
                     ctx.fillStyle = "#ffffff";
-
-                    var total = (parseInt(d.dataset.safe)||0) + (parseInt(d.dataset.suspicious)||0) + (parseInt(d.dataset.malicious)||0);
+ 
+                    var data = chart.data.datasets[0].data;
+                    var total = (data[0]||0) + (data[1]||0) + (data[2]||0);
                     var text = total.toString(),
                         textX = Math.round((width - ctx.measureText(text).width) / 2),
                         textY = height / 2 - 10;
-
+ 
                     ctx.fillText(text, textX, textY);
                     
                     ctx.font = "normal " + (fontSize/2.5).toFixed(2) + "em Inter";
@@ -341,22 +715,25 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // Search & Filter
+    // Set search and status filter event listeners
     const search = document.getElementById('searchInput');
     const filter = document.getElementById('statusFilter');
-    const rows = document.querySelectorAll('#logsTable tbody tr');
-    function filterTable() {
-        const q = search.value.toLowerCase();
-        const f = filter.value;
-        rows.forEach(r => {
-            if (r.children.length === 1) return;
-            const domain = r.children[0].textContent.toLowerCase();
-            const status = r.getAttribute('data-status');
-            r.style.display = (domain.includes(q) && (f === 'all' || status === f)) ? '' : 'none';
+    
+    if (search) {
+        search.addEventListener('input', () => {
+            currentPage = 1;
+            renderTableAndPagination();
         });
     }
-    search.addEventListener('input', filterTable);
-    filter.addEventListener('change', filterTable);
+    if (filter) {
+        filter.addEventListener('change', () => {
+            currentPage = 1;
+            renderTableAndPagination();
+        });
+    }
+    
+    // Set default range to 'weekly' and trigger initial load
+    setDateRange('weekly');
 });
 
 function markRead(id) {
@@ -364,7 +741,7 @@ function markRead(id) {
     .then(() => location.reload());
 }
 
-// Modal
+// Modal functions
 function showBreakdown(row) {
     const bd = JSON.parse(row.getAttribute('data-breakdown') || '{}');
     const status = row.getAttribute('data-status');
@@ -386,8 +763,7 @@ function showBreakdown(row) {
                 <div class="flex justify-between items-center"><span class="text-xs uppercase tracking-wider opacity-70">Checks</span><span class="text-sm">${sc.checks_completed}</span></div>
             </div>`;
         } else {
-            // Fallback for older logs without new JSON structure — build rich explanations from string values
-            const domain = row.children[0]?.textContent?.trim() || 'Unknown';
+            const domain = row.querySelector('.font-medium')?.textContent?.trim() || 'Unknown';
             const alertClass = (status === 'Malicious') ? 'bg-red-500/10 border-red-500/20 text-red-300' : (status === 'Suspicious' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300' : 'bg-green-500/10 border-green-500/20 text-green-300');
             const statusLabel = status || 'Safe';
             html += `<div class="p-4 rounded-xl border ${alertClass} mb-5 flex flex-col gap-2">
@@ -399,7 +775,6 @@ function showBreakdown(row) {
         
         html += '<div class="space-y-3">';
         
-        // Render Checks
         const checks = [
             { key: 'dns', title: 'DNS Verification' },
             { key: 'blacklist', title: 'Blacklist Verification' },
@@ -410,7 +785,6 @@ function showBreakdown(row) {
 
         checks.forEach(check => {
             if (bd[check.key]) {
-                // Handle rich objects
                 if (typeof bd[check.key] === 'object') {
                     const item = bd[check.key];
                     const fail = item.status === 'Failed';
@@ -435,13 +809,11 @@ function showBreakdown(row) {
                         </div>
                     </div>`;
                 } else {
-                    // Fallback for older string-based logs — make them descriptive
                     const v = bd[check.key];
                     const fail = String(v).includes('Failed');
                     const bgClass = fail ? 'bg-red-500/5 border border-red-500/10' : 'bg-green-500/5 border border-green-500/10';
                     const badgeClass = fail ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400';
                     
-                    // Build richer explanations from old data
                     let richMsg = v;
                     if (check.key === 'dns' && !fail) richMsg = 'Passed — Domain successfully resolved. A valid DNS lookup was performed.';
                     if (check.key === 'dns' && fail) richMsg = 'Failed — Domain could not be resolved. No valid DNS records found.';
@@ -467,7 +839,6 @@ function showBreakdown(row) {
             }
         });
 
-        // Add analyst note if present
         if (bd.reclassified_by_analyst) {
              html += `<div class="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10 mt-3">
                     <div class="flex justify-between items-start">

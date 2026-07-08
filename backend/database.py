@@ -247,12 +247,18 @@ def get_recent_logs(limit=100, user_id=None):
             FROM Logs l 
             LEFT JOIN Users u ON l.user_id = u.id 
         '''
+        params = []
         if user_id:
-            query += 'WHERE l.user_id = %s ORDER BY l.timestamp DESC LIMIT %s'
-            cursor.execute(query, (user_id, limit))
-        else:
-            query += 'ORDER BY l.timestamp DESC LIMIT %s'
-            cursor.execute(query, (limit,))
+            query += ' WHERE l.user_id = %s'
+            params.append(user_id)
+        
+        query += ' ORDER BY l.timestamp DESC'
+        
+        if limit is not None:
+            query += ' LIMIT %s'
+            params.append(limit)
+            
+        cursor.execute(query, tuple(params))
         logs = cursor.fetchall()
         conn.close()
         return [dict(log) for log in logs]

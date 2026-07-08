@@ -347,20 +347,30 @@ def dashboard():
     # RBAC: Viewer sees only own logs
     analytics = None
     if role == 'Viewer/User':
-        logs = get_recent_logs(user_id=user_id)
+        logs = get_recent_logs(limit=None, user_id=user_id)
         stats = get_log_stats(user_id=user_id)
         stats_yesterday = get_log_stats_yesterday(user_id=user_id)
     else:
-        logs = get_recent_logs()
+        logs = get_recent_logs(limit=None)
         stats = get_log_stats()
         stats_yesterday = get_log_stats_yesterday()
         analytics = get_global_analytics()
+
+    # Format and serialize all logs to JSON for JS.
+    serialized_logs = []
+    for log in logs:
+        log_dict = dict(log)
+        if log_dict.get('timestamp') and not isinstance(log_dict['timestamp'], str):
+            log_dict['timestamp'] = log_dict['timestamp'].isoformat()
+        serialized_logs.append(log_dict)
+    logs_json = json.dumps(serialized_logs)
 
     # Fetch notifications for the user
     notifications = get_notifications(user_id, unread_only=True)
 
     return render_template('dashboard.html',
         logs=logs,
+        logs_json=logs_json,
         stats=stats,
         stats_yesterday=stats_yesterday,
         analytics=analytics,
