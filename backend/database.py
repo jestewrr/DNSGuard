@@ -498,13 +498,24 @@ def verify_user(username, password):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        # SELECT * needed here to get password_hash for verification only
         cursor.execute('SELECT * FROM Users WHERE username = %s AND is_active = TRUE', (username,))
         user = cursor.fetchone()
         if user and verify_password(user['password_hash'], password):
             if not _password_hash_is_current(user['password_hash']):
                 cursor.execute('UPDATE Users SET password_hash = %s WHERE id = %s', (normalize_password_hash(password), user['id']))
                 conn.commit()
-                cursor.execute('SELECT * FROM Users WHERE id = %s', (user['id'],))
+                cursor.execute(
+                    'SELECT id, full_name, username, email, role, created_at, last_login, is_active FROM Users WHERE id = %s',
+                    (user['id'],)
+                )
+                user = cursor.fetchone()
+            else:
+                # Re-fetch without password_hash to return a clean dict
+                cursor.execute(
+                    'SELECT id, full_name, username, email, role, created_at, last_login, is_active FROM Users WHERE id = %s',
+                    (user['id'],)
+                )
                 user = cursor.fetchone()
             conn.close()
             return dict(user)
@@ -518,7 +529,11 @@ def get_user_by_id(user_id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM Users WHERE id = %s', (user_id,))
+        # Explicitly exclude password_hash — never return it outside of verify_user
+        cursor.execute(
+            'SELECT id, full_name, username, email, role, created_at, last_login, is_active FROM Users WHERE id = %s',
+            (user_id,)
+        )
         user = cursor.fetchone()
         conn.close()
         return dict(user) if user else None

@@ -20,9 +20,11 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dnsguard_super_secret_key_change_in_prod')
 app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() in ('1', 'true', 'yes', 'on')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 AUTH_TOKEN_SALT = 'dnsguard-auth-token'
 AUTH_TOKEN_MAX_AGE = int(os.environ.get('AUTH_TOKEN_MAX_AGE', str(60 * 60 * 24 * 7)))
+AUTH_COOKIE_NAME = 'dnsguard_token'
 
 
 def _auth_serializer():
@@ -59,8 +61,18 @@ def _store_session_for_user(user):
     session['username'] = user['username']
     session['role'] = user['role']
     session['full_name'] = user.get('full_name', user['username'])
-    session['auth_token'] = auth_token
+    # auth_token is NOT stored in the session dict — it is sent as an HttpOnly cookie
     return auth_token
+
+
+def _safe_user_dict(user):
+    """Return only the minimum safe fields needed by the client. Never expose password_hash."""
+    return {
+        'id': user['id'],
+        'username': user['username'],
+        'role': user['role'],
+        'full_name': user.get('full_name', user['username']),
+    }
 
 
 def _request_token():
@@ -464,38 +476,30 @@ def analyst_reclassify(log_id):
 
 @app.route('/api/session_status', methods=['GET'])
 def session_status():
+    # Check Bearer token (for browser extension) — never echo it back in the response
     token = _request_token()
+    if not token:
+        # Fall back to the HttpOnly auth cookie
+        token = request.cookies.get(AUTH_COOKIE_NAME)
     if token:
         user = verify_auth_token(token)
         if user:
             return jsonify({
                 'authenticated': True,
-                'user_id': user['id'],
-                'username': user['username'],
-                'role': user['role'],
-                'full_name': user.get('full_name', user['username']),
-                'auth_token': token
+                **_safe_user_dict(user)
             })
 
     if 'user_id' in session:
         user = get_user_by_id(session['user_id'])
         if user:
-            auth_token = session.get('auth_token') or issue_auth_token(user)
-            session['auth_token'] = auth_token
             session['username'] = user['username']
             session['role'] = user['role']
             session['full_name'] = user.get('full_name', user['username'])
             return jsonify({
                 'authenticated': True,
-                'user_id': user['id'],
-                'username': user['username'],
-                'role': user['role'],
-                'full_name': user.get('full_name', user['username']),
-                'auth_token': auth_token
+                **_safe_user_dict(user)
             })
-        return jsonify({
-            'authenticated': False
-        })
+        return jsonify({'authenticated': False})
     return jsonify({'authenticated': False})
 
 @app.route('/api/login', methods=['POST'])
@@ -507,14 +511,17 @@ def api_login():
     if user:
         auth_token = _store_session_for_user(user)
         update_last_login(user['id'])
-        return jsonify({
-            'success': True,
-            'user_id': user['id'],
-            'username': user['username'],
-            'role': user['role'],
-            'full_name': user.get('full_name', user['username']),
-            'auth_token': auth_token
-        })
+        resp = jsonify({'success': True, **_safe_user_dict(user)})
+        # Set auth token as HttpOnly cookie — never visible in JS or Network response body
+        resp.set_cookie(
+            AUTH_COOKIE_NAME,
+            auth_token,
+            httponly=True,
+            secure=app.config.get('SESSION_COOKIE_SECURE', False),
+            samesite=app.config.get('SESSION_COOKIE_SAMESITE', 'Lax'),
+            max_age=AUTH_TOKEN_MAX_AGE
+        )
+        return resp
     else:
         return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
 
@@ -566,7 +573,7 @@ def check_url():
 
     status, breakdown = analyze_url(url)
     
-    print(f"[DEBUG check_url] Extracted status {status} for {url}. Calling log_request.")
+    # Debug logging removed — do not print internal details in production
     log_request(url, domain, status, ip_address, user_id=user_id, breakdown=breakdown)
 
     return jsonify({
@@ -577,4 +584,5 @@ def check_url():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() in ('1', 'true', 'yes')
+    app.run(debug=debug_mode, port=5000)
