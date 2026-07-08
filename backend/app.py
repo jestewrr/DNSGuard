@@ -17,7 +17,7 @@ import requests
 from scheduler import start_scheduler
 
 app = Flask(__name__)
-app.secret_key = 'dnsguard_super_secret_key_change_in_prod'
+app.secret_key = os.environ.get('SECRET_KEY', 'dnsguard_super_secret_key_change_in_prod')
 app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() in ('1', 'true', 'yes', 'on')
 
