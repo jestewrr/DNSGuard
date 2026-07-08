@@ -7,6 +7,19 @@ function checkCurrentTab() {
         if (!tabs || !tabs[0]) return;
         let currentUrl = tabs[0].url;
         
+        // Parse blocked URL from the block page if active
+        if (currentUrl && currentUrl.includes("/block.html?url=")) {
+            try {
+                const urlParams = new URLSearchParams(currentUrl.split('?')[1]);
+                const blockedUrl = urlParams.get('url');
+                if (blockedUrl) {
+                    currentUrl = blockedUrl;
+                }
+            } catch (e) {
+                console.error("Failed to parse blocked URL", e);
+            }
+        }
+
         if (!currentUrl || currentUrl.startsWith("chrome://") || currentUrl.startsWith("chrome-extension://") || currentUrl.startsWith("file://") || currentUrl.startsWith("about:")) {
             updateStatus("N/A", "unknown");
             return;
