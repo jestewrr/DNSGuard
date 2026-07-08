@@ -5,7 +5,6 @@
   "description": "Monitors websites and blocks malicious domains before access.",
   "permissions": [
     "webRequest",
-    "webRequestBlocking",
     "storage",
     "notifications"
   ],

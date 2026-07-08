@@ -77,6 +77,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('login-btn').addEventListener('click', handleLogin);
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    document.getElementById('register-btn').addEventListener('click', function () {
+        chrome.storage.local.get(['backend_url'], function (result) {
+            const currentBackend = result.backend_url || "https://dnsguard-backend.onrender.com";
+            window.open(`${currentBackend}/register`, '_blank');
+        });
+    });
 });
 
 // ──────────────────────────────────────────────
