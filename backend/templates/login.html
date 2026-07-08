@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='imagelogo.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
         * { font-family: 'Inter', sans-serif; }
         .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
@@ -100,6 +101,10 @@
                             </svg>
                         </button>
                     </div>
+                </div>
+                <!-- reCAPTCHA Widget (Test Key) -->
+                <div class="mb-5 flex justify-center">
+                    <div class="g-recaptcha" data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"></div>
                 </div>
                 <div class="flex items-center justify-between mb-6">
                     <label class="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">

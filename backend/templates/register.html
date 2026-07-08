@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='imagelogo.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
         * { font-family: 'Inter', sans-serif; }
         .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
@@ -114,6 +115,10 @@
                         </button>
                     </div>
                     <p id="matchError" class="hidden text-red-400 text-xs mt-2">Passwords do not match</p>
+                </div>
+                <!-- reCAPTCHA Widget (Test Key) -->
+                <div class="mb-5 flex justify-center">
+                    <div class="g-recaptcha" data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"></div>
                 </div>
                 <button type="submit" id="submitBtn"
                     class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold hover:from-cyan-400 hover:to-blue-500 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
