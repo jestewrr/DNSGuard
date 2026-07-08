@@ -469,6 +469,8 @@ def check_url():
     ip_address = request.remote_addr
 
     status, breakdown = analyze_url(url)
+    
+    print(f"[DEBUG check_url] Extracted status {status} for {url}. Calling log_request.")
     log_request(url, domain, status, ip_address, user_id=user_id, breakdown=breakdown)
 
     return jsonify({

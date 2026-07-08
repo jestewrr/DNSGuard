@@ -154,6 +154,7 @@ def init_db():
 
 def log_request(url, domain, status, ip_address, user_id=None, breakdown=None):
     try:
+        print(f"[DEBUG log_request] Starting log insertion for {url}, status: {status}, user: {user_id}")
         conn = get_db_connection()
         cursor = conn.cursor()
         breakdown_json = json.dumps(breakdown) if breakdown else None
@@ -163,6 +164,7 @@ def log_request(url, domain, status, ip_address, user_id=None, breakdown=None):
         )
         conn.commit()
         conn.close()
+        print(f"[DEBUG log_request] Successfully inserted into DB for {url}")
     except Exception as e:
         print(f"Error logging request: {e}")
 

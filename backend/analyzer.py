@@ -166,6 +166,17 @@ def analyze_url(url):
     if not domain:
         return "Suspicious", breakdown
 
+    whitelist = ['localhost', '127.0.0.1', 'dnsguard-backend.onrender.com']
+    if domain in whitelist or domain.endswith('.localhost'):
+        breakdown['summary'] = {
+            "url": url,
+            "timestamp": timestamp,
+            "checks_completed": "Whitelisted",
+            "overall_confidence": "100%",
+            "final_status": "Safe"
+        }
+        return "Safe", breakdown
+
     # 1. Blacklist-Based Detection
     is_black = is_blacklisted(domain)
     breakdown['blacklist'] = {
