@@ -43,7 +43,7 @@ def add_security_headers(response):
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
         "font-src 'self' data: https://fonts.gstatic.com; "
         "img-src 'self' data:; "
-        "connect-src 'self';"
+        "connect-src 'self' https://cdn.jsdelivr.net;"
     )
     
     # Cross-Site Scripting Protection (X-XSS-Protection) - Legacy protection
