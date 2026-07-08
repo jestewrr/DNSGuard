@@ -62,8 +62,19 @@ async function checkUrlStatus(url, tabId) {
                 }
             });
 
+            // Determine reason from breakdown
+            let reason = "Classified as unsafe by threat engine.";
+            if (data.breakdown) {
+                for (const check of Object.values(data.breakdown)) {
+                    if (check.status === 'Failed' && check.message) {
+                        reason = check.message;
+                        break;
+                    }
+                }
+            }
+
             // Redirect the tab to our block page
-            const blockUrl = chrome.runtime.getURL(`block.html?url=${encodeURIComponent(url)}&status=${data.status}`);
+            const blockUrl = chrome.runtime.getURL(`block.html?url=${encodeURIComponent(url)}&status=${data.status}&reason=${encodeURIComponent(reason)}`);
             chrome.tabs.update(tabId, { url: blockUrl });
         }
         }); // end storage get

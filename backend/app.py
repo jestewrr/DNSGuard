@@ -11,6 +11,7 @@ from database import (
 )
 from analyzer import analyze_url, extract_domain
 import json
+import requests
 from scheduler import start_scheduler
 
 app = Flask(__name__)
@@ -99,6 +100,21 @@ def analyst_required(f):
 # Auth Routes
 # ──────────────────────────────────────────────
 
+RECAPTCHA_SECRET_KEY = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'
+
+def verify_recaptcha(response_token):
+    if not response_token:
+        return False
+    payload = {
+        'secret': RECAPTCHA_SECRET_KEY,
+        'response': response_token
+    }
+    try:
+        res = requests.post('https://www.google.com/recaptcha/api/siteverify', data=payload)
+        return res.json().get('success', False)
+    except Exception:
+        return False
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if 'user_id' in session:
@@ -107,6 +123,11 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         remember = request.form.get('remember') == 'on'
+        recaptcha_response = request.form.get('g-recaptcha-response')
+
+        if not verify_recaptcha(recaptcha_response):
+            flash('Please complete the reCAPTCHA.', 'error')
+            return render_template('login.html')
 
         if not username or not password:
             flash('Please fill in all fields.', 'error')
@@ -137,8 +158,13 @@ def register():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
+        recaptcha_response = request.form.get('g-recaptcha-response')
 
         # Validation
+        if not verify_recaptcha(recaptcha_response):
+            flash('Please complete the reCAPTCHA.', 'error')
+            return render_template('register.html')
+            
         if not all([full_name, username, email, password, confirm_password]):
             flash('All fields are required.', 'error')
             return render_template('register.html')
