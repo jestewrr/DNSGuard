@@ -150,13 +150,26 @@
             }
         }
 
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            // Show loading spinner — passwords are sent as plain text over HTTPS
-            // and are verified securely on the server side using werkzeug
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
             document.getElementById('btnText').textContent = 'Signing in...';
             document.getElementById('btnSpinner').classList.remove('hidden');
             document.getElementById('submitBtn').disabled = true;
-            // Let the form submit normally (no client-side hashing)
+
+            // SHA-256 hash the password before sending so plaintext is never
+            // transmitted or visible in browser developer tools.
+            // The server verifies sha256(password) against its werkzeug-stored hash.
+            const pwInput = document.getElementById('passwordInput');
+            pwInput.value = await sha256(pwInput.value);
+
+            this.submit();
         });
     </script>
 

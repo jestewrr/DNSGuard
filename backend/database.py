@@ -62,7 +62,15 @@ def verify_password(stored_hash, password):
     return _legacy_password_matches(stored_hash, password)
 
 
+def _sha256(value: str) -> str:
+    """Return the hex-encoded SHA-256 digest of value.
+    This is applied client-side before transmission, so the server
+    never receives or stores a plaintext password."""
+    return hashlib.sha256(value.encode('utf-8')).hexdigest()
+
+
 def normalize_password_hash(password):
+    """Store werkzeug hash of the value as-received (already SHA-256'd by client)."""
     return generate_password_hash(password)
 
 def get_db_connection():
@@ -185,10 +193,11 @@ def init_db():
         # Insert default users if empty
         cursor.execute('SELECT COUNT(*) FROM Users')
         if cursor.fetchone()[0] == 0:
+            # Store werkzeug_hash(sha256(raw)) — mirrors what the login form sends
             default_users = [
-                ('Admin User', 'admin', 'admin@dnsguard.local', generate_password_hash('admin123'), 'Administrator'),
-                ('Analyst User', 'analyst', 'analyst@dnsguard.local', generate_password_hash('analyst123'), 'Security Analyst'),
-                ('Viewer User', 'viewer', 'viewer@dnsguard.local', generate_password_hash('viewer123'), 'Viewer/User'),
+                ('Admin User',   'admin',   'admin@dnsguard.local',   generate_password_hash(_sha256('admin123')),   'Administrator'),
+                ('Analyst User', 'analyst', 'analyst@dnsguard.local', generate_password_hash(_sha256('analyst123')), 'Security Analyst'),
+                ('Viewer User',  'viewer',  'viewer@dnsguard.local',  generate_password_hash(_sha256('viewer123')),  'Viewer/User'),
             ]
             for u in default_users:
                 cursor.execute(
@@ -196,14 +205,13 @@ def init_db():
                     u
                 )
         else:
-            # Only fix demo account passwords if they are using a broken/legacy hash format
-            for username, password in [('admin', 'admin123'), ('analyst', 'analyst123'), ('viewer', 'viewer123')]:
-                cursor.execute("SELECT password_hash FROM Users WHERE username = %s", (username,))
-                row = cursor.fetchone()
-                if row and not _password_hash_is_current(row['password_hash']):
-                    cursor.execute("UPDATE Users SET password_hash = %s WHERE username = %s",
-                                   (normalize_password_hash(password), username))
-                    print(f"[init_db] Fixed legacy password hash for demo account: {username}")
+            # Always keep demo accounts in sync with the sha256 flow.
+            # This also serves as a one-time migration from the old raw-password hashes.
+            for username, raw_password in [('admin', 'admin123'), ('analyst', 'analyst123'), ('viewer', 'viewer123')]:
+                new_hash = generate_password_hash(_sha256(raw_password))
+                cursor.execute("UPDATE Users SET password_hash = %s WHERE username = %s",
+                               (new_hash, username))
+            print("[init_db] Demo account password hashes synced to sha256 flow.")
 
         conn.commit()
         conn.close()
@@ -501,29 +509,49 @@ def verify_user(username, password):
         # SELECT * needed here to get password_hash for verification only
         cursor.execute('SELECT * FROM Users WHERE username = %s AND is_active = TRUE', (username,))
         user = cursor.fetchone()
-        if user and verify_password(user['password_hash'], password):
-            if not _password_hash_is_current(user['password_hash']):
-                cursor.execute('UPDATE Users SET password_hash = %s WHERE id = %s', (normalize_password_hash(password), user['id']))
+
+        if not user:
+            conn.close()
+            return None
+
+        stored_hash = user['password_hash']
+        user_id = user['id']
+        matched = False
+
+        # Primary path: client sends sha256(rawpassword), server verifies against
+        # werkzeug_hash(sha256(rawpassword)) — the standard flow for all new accounts.
+        if verify_password(stored_hash, password):
+            matched = True
+
+        # Legacy migration path: older accounts stored werkzeug_hash(rawpassword).
+        # The client now sends sha256(rawpassword), which won't match the old hash.
+        # We can't reverse sha256, but we CAN detect this case by checking whether
+        # the raw hex string passes the legacy sha256 check in _legacy_password_matches.
+        # Instead, we skip this — there's no safe way to verify without the raw password.
+        # Users with old hashes should use the "Forgot Password" flow to reset.
+
+        if matched:
+            if not _password_hash_is_current(stored_hash):
+                # Upgrade legacy hash format (e.g. plain bcrypt) to scrypt(sha256_input)
+                cursor.execute('UPDATE Users SET password_hash = %s WHERE id = %s',
+                               (generate_password_hash(password), user_id))
                 conn.commit()
-                cursor.execute(
-                    'SELECT id, full_name, username, email, role, created_at, last_login, is_active FROM Users WHERE id = %s',
-                    (user['id'],)
-                )
-                user = cursor.fetchone()
-            else:
-                # Re-fetch without password_hash to return a clean dict
-                cursor.execute(
-                    'SELECT id, full_name, username, email, role, created_at, last_login, is_active FROM Users WHERE id = %s',
-                    (user['id'],)
-                )
-                user = cursor.fetchone()
+
+            # Re-fetch without password_hash to return a clean safe dict
+            cursor.execute(
+                'SELECT id, full_name, username, email, role, created_at, last_login, is_active FROM Users WHERE id = %s',
+                (user_id,)
+            )
+            user = cursor.fetchone()
             conn.close()
             return dict(user)
+
         conn.close()
         return None
     except Exception as e:
         print(f"Error verifying user: {e}")
         return None
+
 
 def get_user_by_id(user_id):
     try:
