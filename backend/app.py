@@ -414,9 +414,17 @@ def analyst_reclassify(log_id):
     flash(f'Log #{log_id} reclassified as {new_status}.', 'success')
     return redirect(url_for('dashboard'))
 
-# ──────────────────────────────────────────────
-# API Endpoints (for the browser extension)
-# ──────────────────────────────────────────────
+@app.route('/api/session_status', methods=['GET'])
+def session_status():
+    if 'user_id' in session:
+        return jsonify({
+            'authenticated': True,
+            'user_id': session['user_id'],
+            'username': session['username'],
+            'role': session['role'],
+            'full_name': session.get('full_name', session['username'])
+        })
+    return jsonify({'authenticated': False})
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
